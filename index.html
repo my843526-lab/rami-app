@@ -133,6 +133,56 @@
     <button><span>👤</span>Profile</button>
   </nav>
 </body><script>
+  const navButtons = document.querySelectorAll("nav button");
+  const feed = document.querySelector(".feed");
+  const sectionTitle = document.querySelector(".section-title");
+
+  const pages = {
+    "Home": {
+      title: "Rami Home",
+      icon: "🏠",
+      text: "Welcome back! Discover videos, knowledge and memories."
+    },
+    "Discover": {
+      title: "Discover Rami",
+      icon: "🔎",
+      text: "Explore new creators, trending videos and interesting topics."
+    },
+    "Create": {
+      title: "Create on Rami",
+      icon: "➕",
+      text: "Your photo and video creation tools will be available here soon."
+    },
+    "Memories": {
+      title: "Your Memories",
+      icon: "💖",
+      text: "Your saved photos, videos and special moments will live here."
+    },
+    "Profile": {
+      title: "Your Profile",
+      icon: "👤",
+      text: "Your profile, posts and creator information will appear here."
+    }
+  };
+
+  navButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      const name = button.innerText.replace(/\n/g, "").trim();
+      const page = pages[name];
+
+      if (page) {
+        sectionTitle.textContent = page.title;
+        feed.innerHTML = `
+          <div class="video-placeholder">${page.icon}</div>
+          <h3>${page.title}</h3>
+          <p>${page.text}</p>
+        `;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+  });
+</script>
+  <script>
   const categoryButtons = document.querySelectorAll(".categories button");
   const feed = document.querySelector(".feed");
   const sectionTitle = document.querySelector(".section-title");
