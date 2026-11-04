@@ -1,42 +1,91 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6c35d5">
   <title>Rami - Your World</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+
   <header>
     <div>
       <div class="logo">Rami ✨</div>
       <div class="tagline">Your world, your memories</div>
     </div>
-    <div class="profile">👤</div>
+    <button class="profile" id="profileButton" type="button">👤</button>
   </header>
 
-  <div class="categories">
-    <button class="active" type="button">For You</button>
-    <button type="button">Knowledge</button>
-    <button type="button">Entertainment</button>
-    <button type="button">Memories</button>
-    <button type="button">Live</button>
-  </div>
+  <main>
+    <section class="auth-panel" id="authPanel">
+      <h2>Welcome to Rami 🇵🇰</h2>
+      <p>Create your account or log in to join Rami.</p>
+      <input id="authName" type="text" placeholder="Your name (for signup)">
+      <input id="authEmail" type="email" placeholder="Email address">
+      <input id="authPassword" type="password" placeholder="Password (at least 6 characters)">
+      <div class="auth-buttons">
+        <button class="action-button" id="signupButton" type="button">Sign Up</button>
+        <button class="action-button secondary-button" id="loginButton" type="button">Log In</button>
+      </div>
+      <p id="authMessage" class="message"></p>
+    </section>
 
-  <section class="welcome">
-    <h2>Welcome to Rami 🇵🇰</h2>
-    <p>Share your talent, learn something new, save your memories and grow together.</p>
-  </section>
+    <section class="account-panel" id="accountPanel" hidden>
+      <h3 id="welcomeUser">Welcome!</h3>
+      <p id="userEmail"></p>
+      <button class="action-button secondary-button" id="logoutButton" type="button">Log Out</button>
+    </section>
 
-  <h3 class="section-title">Your Rami Feed</h3>
+    <div class="categories">
+      <button class="active" data-filter="all" type="button">For You</button>
+      <button data-filter="Knowledge" type="button">Knowledge</button>
+      <button data-filter="Entertainment" type="button">Entertainment</button>
+      <button data-filter="Memories" type="button">Memories</button>
+    </div>
 
-  <section class="feed">
-    <div class="video-placeholder">▶️</div>
-    <h3>Your Rami journey starts here!</h3>
-    <p>Videos, knowledge, entertainment and memories — all in one place.</p>
-  </section>
+    <section class="welcome">
+      <h2>Welcome to Rami 🇵🇰</h2>
+      <p>Share your talent, learn something new, save your memories and grow together.</p>
+    </section>
+
+    <section class="create-panel" id="createPanel">
+      <h3>Share something with Rami</h3>
+      <input id="postTitle" type="text" placeholder="Post title">
+      <select id="postCategory">
+        <option value="Knowledge">Knowledge</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Memories">Memories</option>
+      </select>
+      <textarea id="postText" rows="4" placeholder="What would you like to share?"></textarea>
+      <button class="action-button" id="publishButton" type="button">Publish Post</button>
+      <p id="postMessage" class="message"></p>
+    </section>
+
+    <h3 class="section-title">Your Rami Feed</h3>
+    <section class="feed-list" id="feedList">
+      <div class="feed">
+        <div class="video-placeholder">🇵🇰</div>
+        <h3>Your Rami journey starts here!</h3>
+        <p>Sign up and publish your first post.</p>
+      </div>
+    </section>
+
+    <section class="profile-panel" id="profilePanel">
+      <h3>My Profile</h3>
+      <p id="profileName">Log in to see your profile.</p>
+      <p id="profileStats"></p>
+      <h3 class="section-title">My Memories</h3>
+      <div id="memoryList"></div>
+      <button class="action-button" id="saveMemoryButton" type="button">Save a Memory</button>
+      <p id="memoryMessage" class="message"></p>
+    </section>
+
+    <section class="discover-panel" id="discoverPanel">
+      <h3>Discover Creators</h3>
+      <div id="creatorList">Log in to discover creators.</div>
+    </section>
+  </main>
 
   <nav>
     <button type="button" data-page="Home"><span>🏠</span>Home</button>
@@ -46,8 +95,6 @@
     <button type="button" data-page="Profile"><span>👤</span>Profile</button>
   </nav>
 
-  <input id="mediaPicker" type="file" accept="image/*,video/*" hidden>
-
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
