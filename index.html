@@ -132,6 +132,55 @@
     <button><span>💖</span>Memories</button>
     <button><span>👤</span>Profile</button>
   </nav>
-</body>
+</body><script>
+  const categoryButtons = document.querySelectorAll(".categories button");
+  const feed = document.querySelector(".feed");
+  const sectionTitle = document.querySelector(".section-title");
+
+  const content = {
+    "For You": {
+      title: "Your Rami Feed",
+      text: "Discover videos, stories and inspiring people on Rami.",
+      icon: "▶️"
+    },
+    "Knowledge": {
+      title: "Learn Something New",
+      text: "Knowledge videos and useful tips will appear here.",
+      icon: "📚"
+    },
+    "Entertainment": {
+      title: "Enjoy & Have Fun",
+      text: "Funny videos, creative clips and entertainment will appear here.",
+      icon: "🎉"
+    },
+    "Memories": {
+      title: "Your Memories",
+      text: "A special place for your photos, videos and favorite moments.",
+      icon: "💖"
+    },
+    "Live": {
+      title: "Rami Live",
+      text: "Live streaming will be available here in a future update.",
+      icon: "🔴"
+    }
+  };
+
+  categoryButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      categoryButtons.forEach(item => item.classList.remove("active"));
+      button.classList.add("active");
+
+      const selected = content[button.textContent.trim()];
+      if (selected) {
+        sectionTitle.textContent = selected.title;
+        feed.innerHTML = `
+          <div class="video-placeholder">${selected.icon}</div>
+          <h3>${selected.title}</h3>
+          <p>${selected.text}</p>
+        `;
+      }
+    });
+  });
+</script>
   </html>
   
