@@ -5,13 +5,69 @@ const feed = document.querySelector(".feed");
 const sectionTitle = document.querySelector(".section-title");
 const mediaPicker = document.getElementById("mediaPicker");
 
+function renderPost(title, description) {
+  feed.innerHTML = `
+    <div class="video-placeholder">▶️</div>
+    <h3>${title}</h3>
+    <p>${description}</p>
+    <div class="post-actions">
+      <button type="button" class="like-btn">❤️ Like <span>0</span></button>
+      <button type="button" class="comment-btn">💬 Comment</button>
+      <button type="button" class="share-btn">🔗 Share</button>
+    </div>
+    <div class="comments-list"></div>
+  `;
+
+  const likeButton = feed.querySelector(".like-btn");
+  const likeCount = likeButton.querySelector("span");
+  const commentButton = feed.querySelector(".comment-btn");
+  const shareButton = feed.querySelector(".share-btn");
+  const commentsList = feed.querySelector(".comments-list");
+
+  let liked = false;
+  let count = 0;
+
+  likeButton.addEventListener("click", () => {
+    liked = !liked;
+    count = liked ? 1 : 0;
+    likeCount.textContent = count;
+    likeButton.textContent = liked ? "❤️ Liked " : "🤍 Like ";
+    likeButton.append(likeCount);
+  });
+
+  commentButton.addEventListener("click", () => {
+    const comment = prompt("Rami par apna comment likhein:");
+    if (!comment || !comment.trim()) return;
+
+    const commentItem = document.createElement("p");
+    commentItem.textContent = "💬 " + comment.trim();
+    commentsList.appendChild(commentItem);
+  });
+
+  shareButton.addEventListener("click", async () => {
+    const shareText = "Check out Rami - Your world, your memories!";
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Rami",
+          text: shareText,
+          url: window.location.href
+        });
+      } catch (error) {
+        // Share window closed
+      }
+    } else {
+      alert(shareText + "\n" + window.location.href);
+    }
+  });
+}
+
 function showPage(title, icon, text) {
   sectionTitle.textContent = title;
-  feed.innerHTML = `
-    <div class="video-placeholder">${icon}</div>
-    <h3>${title}</h3>
-    <p>${text}</p>
-  `;
+  renderPost(title, text);
+  const placeholder = feed.querySelector(".video-placeholder");
+  if (placeholder) placeholder.textContent = icon;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -29,12 +85,12 @@ const categories = {
   "Entertainment": {
     title: "Enjoy & Have Fun",
     icon: "🎉",
-    text: "Funny videos, creative clips and entertainment will appear here."
+    text: "Funny videos, creative clips and entertainment."
   },
   "Memories": {
     title: "Your Memories",
     icon: "💖",
-    text: "A special place for your photos, videos and favorite moments."
+    text: "Your photos, videos and favorite moments."
   },
   "Live": {
     title: "Rami Live",
@@ -62,19 +118,13 @@ navButtons.forEach(button => {
     if (page === "Home") {
       categoryButtons.forEach(item => item.classList.remove("active"));
       categoryButtons[0].classList.add("active");
-      showPage(
-        "Your Rami Feed",
-        "▶️",
-        "Welcome back! Discover videos, knowledge and memories."
-      );
+      showPage("Your Rami Feed", "▶️",
+        "Welcome back! Discover videos, knowledge and memories.");
     }
 
     if (page === "Discover") {
-      showPage(
-        "Discover Rami",
-        "🔎",
-        "Explore new creators, trending videos and interesting topics."
-      );
+      showPage("Discover Rami", "🔎",
+        "Explore new creators, trending videos and interesting topics.");
     }
 
     if (page === "Create") {
@@ -82,19 +132,13 @@ navButtons.forEach(button => {
     }
 
     if (page === "Memories") {
-      showPage(
-        "Your Memories",
-        "💖",
-        "Your special photos and videos can be selected here. Saving them to an account will be added later."
-      );
+      showPage("Your Memories", "💖",
+        "Your special photos and videos.");
     }
 
     if (page === "Profile") {
-      showPage(
-        "Your Profile",
-        "👤",
-        "Your profile, posts and creator information will appear here."
-      );
+      showPage("Your Profile", "👤",
+        "Your profile, posts and creator information.");
     }
   });
 });
@@ -122,3 +166,9 @@ mediaPicker.addEventListener("change", () => {
     `;
   }
 });
+
+// Show the first feed post when Rami opens
+renderPost(
+  "Welcome to Rami 🇵🇰",
+  "Your world, your memories. Share, learn and grow together!"
+);
