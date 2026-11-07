@@ -1,4 +1,5 @@
 // Rami - Firebase Connected Social App
+// Gallery picker + image/video preview added
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
@@ -45,11 +46,12 @@ let currentUser = null;
 let allPosts = [];
 let activeFilter = "all";
 let stopPostsListener = null;
+let selectedMediaUrl = null;
 
-// Short helper for selecting elements
+// Short helper
 const el = id => document.getElementById(id);
 
-// Safe text for HTML
+// Safe text
 function safeText(value = "") {
   return String(value).replace(/[&<>"']/g, character => ({
     "&": "&amp;",
@@ -66,7 +68,7 @@ function showMessage(id, text) {
   if (node) node.textContent = text;
 }
 
-// Require login for actions
+// Require login
 function requireLogin() {
   if (!currentUser) {
     alert("Please sign up or log in first.");
@@ -75,7 +77,7 @@ function requireLogin() {
   return true;
 }
 
-// Convert Firestore timestamp to readable date
+// Readable date
 function readableDate(value) {
   if (!value) return "";
 
@@ -92,7 +94,7 @@ function readableDate(value) {
   }
 }
 
-// Get comments as a consistent array
+// Normalize comments
 function normalizeComments(comments) {
   if (!Array.isArray(comments)) return [];
 
@@ -103,6 +105,141 @@ function normalizeComments(comments) {
     return comment || { text: "" };
   });
 }
+
+// --------------------------------------------------
+// GALLERY PICKER AND PREVIEW
+// --------------------------------------------------
+
+function setupGallery() {
+  const createPanel = el("createPanel");
+  const publishButton = el("publishButton");
+
+  if (!createPanel || !publishButton) return;
+
+  let mediaPicker = el("mediaPicker");
+  let preview = el("mediaPreview");
+
+  // Create file picker if it is missing
+  if (!mediaPicker) {
+    mediaPicker = document.createElement("input");
+    mediaPicker.type = "file";
+    mediaPicker.id = "mediaPicker";
+    mediaPicker.accept = "image/*,video/*";
+
+    createPanel.insertBefore(mediaPicker, publishButton);
+  }
+
+  mediaPicker.accept = "image/*,video/*";
+
+  // Create preview area if missing
+  if (!preview) {
+    preview = document.createElement("div");
+    preview.id = "mediaPreview";
+    createPanel.insertBefore(preview, publishButton);
+  }
+
+  // Find existing Gallery button
+  let galleryButton = document.querySelector(
+    'label[for="mediaPicker"]'
+  );
+
+  // Create a proper button if the label is missing
+  if (!galleryButton) {
+    galleryButton = document.createElement("button");
+    galleryButton.type = "button";
+    galleryButton.className = "action-button";
+    galleryButton.textContent = "📷 Choose Photo or Video";
+    createPanel.insertBefore(galleryButton, mediaPicker);
+  }
+
+  galleryButton.id = "chooseMediaButton";
+
+  // Make file picker visually hidden but usable
+  mediaPicker.style.position = "absolute";
+  mediaPicker.style.width = "1px";
+  mediaPicker.style.height = "1px";
+  mediaPicker.style.opacity = "0.01";
+  mediaPicker.style.overflow = "hidden";
+
+  // Open phone Gallery / file chooser
+  galleryButton.addEventListener("click", event => {
+    event.preventDefault();
+    mediaPicker.click();
+  });
+
+  // Preview selected photo or video
+  mediaPicker.addEventListener("change", () => {
+    if (selectedMediaUrl) {
+      URL.revokeObjectURL(selectedMediaUrl);
+      selectedMediaUrl = null;
+    }
+
+    preview.innerHTML = "";
+
+    const file = mediaPicker.files && mediaPicker.files[0];
+
+    if (!file) return;
+
+    if (
+      !file.type.startsWith("image/") &&
+      !file.type.startsWith("video/")
+    ) {
+      showMessage("postMessage", "Please select an image or video.");
+      mediaPicker.value = "";
+      return;
+    }
+
+    selectedMediaUrl = URL.createObjectURL(file);
+
+    const mediaElement = document.createElement(
+      file.type.startsWith("video/") ? "video" : "img"
+    );
+
+    mediaElement.src = selectedMediaUrl;
+    mediaElement.style.width = "100%";
+    mediaElement.style.maxHeight = "350px";
+    mediaElement.style.objectFit = "contain";
+    mediaElement.style.borderRadius = "12px";
+    mediaElement.style.background = "#111";
+
+    if (file.type.startsWith("video/")) {
+      mediaElement.controls = true;
+      mediaElement.playsInline = true;
+    }
+
+    preview.appendChild(mediaElement);
+
+    const fileName = document.createElement("p");
+    fileName.textContent = "Selected: " + file.name;
+    preview.appendChild(fileName);
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "action-button secondary-button";
+    removeButton.textContent = "Remove Selection";
+
+    removeButton.addEventListener("click", () => {
+      mediaPicker.value = "";
+      preview.innerHTML = "";
+
+      if (selectedMediaUrl) {
+        URL.revokeObjectURL(selectedMediaUrl);
+        selectedMediaUrl = null;
+      }
+
+      showMessage("postMessage", "Media selection removed.");
+    });
+
+    preview.appendChild(removeButton);
+
+    showMessage(
+      "postMessage",
+      "Preview ready! Online media upload abhi setup nahi hua."
+    );
+  });
+}
+
+setupGallery();
 
 // --------------------------------------------------
 // SIGN UP
@@ -201,6 +338,7 @@ onAuthStateChanged(auth, async user => {
 
   if (user) {
     el("userEmail").textContent = user.email || "";
+
     await loadMyProfile();
     listenToPosts();
     await loadCreators();
@@ -212,6 +350,7 @@ onAuthStateChanged(auth, async user => {
     el("profileStats").textContent = "";
     el("creatorList").textContent = "Log in to discover creators.";
     el("memoryList").innerHTML = "";
+
     allPosts = [];
 
     if (stopPostsListener) {
@@ -249,7 +388,7 @@ async function loadMyProfile() {
 }
 
 // --------------------------------------------------
-// CREATE POST
+// CREATE TEXT POST
 // --------------------------------------------------
 
 el("publishButton").addEventListener("click", async () => {
@@ -258,6 +397,15 @@ el("publishButton").addEventListener("click", async () => {
   const title = el("postTitle").value.trim();
   const text = el("postText").value.trim();
   const category = el("postCategory").value;
+  const mediaPicker = el("mediaPicker");
+
+  if (mediaPicker && mediaPicker.files.length > 0) {
+    showMessage(
+      "postMessage",
+      "Photo/video preview ho rahi hai, lekin online upload abhi available nahi. Filhal media remove karke text post publish karein."
+    );
+    return;
+  }
 
   if (!title || !text) {
     showMessage("postMessage", "Post ka title aur text likhein.");
@@ -309,7 +457,6 @@ function listenToPosts() {
         ...item.data()
       }));
 
-      // Sort posts newest first where possible
       allPosts.sort((a, b) => {
         const getTime = value => {
           if (!value) return 0;
@@ -554,6 +701,7 @@ async function loadCreators() {
     }
 
     const followSnapshot = await getDocs(collection(db, "follows"));
+
     const followedIds = new Set(
       followSnapshot.docs
         .filter(item => item.data().followerId === currentUser.uid)
