@@ -1,5 +1,5 @@
 // Rami - Firebase Connected Social App
-// Gallery picker + image/video preview added
+// Direct Gallery opening + image/video preview
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
@@ -48,7 +48,6 @@ let activeFilter = "all";
 let stopPostsListener = null;
 let selectedMediaUrl = null;
 
-// Short helper
 const el = id => document.getElementById(id);
 
 // Safe text
@@ -119,31 +118,26 @@ function setupGallery() {
   let mediaPicker = el("mediaPicker");
   let preview = el("mediaPreview");
 
-  // Create file picker if it is missing
   if (!mediaPicker) {
     mediaPicker = document.createElement("input");
     mediaPicker.type = "file";
     mediaPicker.id = "mediaPicker";
     mediaPicker.accept = "image/*,video/*";
-
     createPanel.insertBefore(mediaPicker, publishButton);
   }
 
   mediaPicker.accept = "image/*,video/*";
 
-  // Create preview area if missing
   if (!preview) {
     preview = document.createElement("div");
     preview.id = "mediaPreview";
     createPanel.insertBefore(preview, publishButton);
   }
 
-  // Find existing Gallery button
   let galleryButton = document.querySelector(
     'label[for="mediaPicker"]'
   );
 
-  // Create a proper button if the label is missing
   if (!galleryButton) {
     galleryButton = document.createElement("button");
     galleryButton.type = "button";
@@ -154,20 +148,19 @@ function setupGallery() {
 
   galleryButton.id = "chooseMediaButton";
 
-  // Make file picker visually hidden but usable
   mediaPicker.style.position = "absolute";
   mediaPicker.style.width = "1px";
   mediaPicker.style.height = "1px";
   mediaPicker.style.opacity = "0.01";
   mediaPicker.style.overflow = "hidden";
 
-  // Open phone Gallery / file chooser
+  // Gallery button
   galleryButton.addEventListener("click", event => {
     event.preventDefault();
     mediaPicker.click();
   });
 
-  // Preview selected photo or video
+  // Selected media preview
   mediaPicker.addEventListener("change", () => {
     if (selectedMediaUrl) {
       URL.revokeObjectURL(selectedMediaUrl);
@@ -843,7 +836,7 @@ document.querySelectorAll(".categories button").forEach(button => {
 });
 
 // --------------------------------------------------
-// BOTTOM NAVIGATION
+// BOTTOM NAVIGATION - DIRECT GALLERY OPEN
 // --------------------------------------------------
 
 document.querySelectorAll("nav button").forEach(button => {
@@ -852,10 +845,19 @@ document.querySelectorAll("nav button").forEach(button => {
 
     if (page === "Home") {
       window.scrollTo({ top: 0, behavior: "smooth" });
+
     } else if (page === "Create") {
-      el("createPanel").scrollIntoView({ behavior: "smooth" });
+      const mediaPicker = el("mediaPicker");
+
+      if (mediaPicker) {
+        mediaPicker.click();
+      } else {
+        alert("Gallery is not ready. Please reload Rami.");
+      }
+
     } else if (page === "Discover") {
       el("discoverPanel").scrollIntoView({ behavior: "smooth" });
+
     } else if (page === "Memories" || page === "Profile") {
       el("profilePanel").scrollIntoView({ behavior: "smooth" });
     }
