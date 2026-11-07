@@ -36,6 +36,10 @@ const firebaseConfig = {
   measurementId: "G-TZFRLKCQB5"
 };
 
+// Cloudinary configuration
+const CLOUDINARY_CLOUD_NAME = "dge5sq0w";
+const CLOUDINARY_UPLOAD_PRESET = "rami_mobile";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -94,6 +98,57 @@ function escapeHTML(value = "") {
 
 function showMessage(element, message) {
   if (element) element.textContent = message;
+}
+
+// Upload photo or video to Cloudinary
+async function uploadToCloudinary(file) {
+  if (!file) return null;
+
+  const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+
+  if (!isImage && !isVideo) {
+    throw new Error("Please select a photo or video.");
+  }
+
+  // Basic upload size checks
+  const maxSize = isImage
+    ? 10 * 1024 * 1024
+    : 50 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    throw new Error(
+      isImage
+        ? "Photo must be 10 MB or smaller."
+        : "Video must be 50 MB or smaller."
+    );
+  }
+
+  const formData = new FormData();
+
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+    {
+      method: "POST",
+      body: formData
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      result.error?.message || "Media upload failed."
+    );
+  }
+
+  return {
+    url: result.secure_url,
+    type: result.resource_type
+  };
 }
 
 // Sign up
@@ -209,6 +264,7 @@ async function loadProfile() {
 
     if (userDoc.exists()) {
       const data = userDoc.data();
+
       profileName.textContent =
         data.name || currentUser.displayName || "Rami Creator";
     }
@@ -217,7 +273,7 @@ async function loadProfile() {
   }
 }
 
-// Publish post
+// Publish post with gallery upload
 publishButton?.addEventListener("click", async () => {
   if (!currentUser) {
     showMessage(postMessage, "Please login first.");
@@ -235,14 +291,6 @@ publishButton?.addEventListener("click", async () => {
     return;
   }
 
-  if (selectedFile && !videoUrl) {
-    showMessage(
-      postMessage,
-      "Video/photo upload is not active yet. Firebase Storage requires a billing upgrade. You can publish text or use a direct video URL."
-    );
-    return;
-  }
-
   if (videoUrl && !/^https?:\/\//i.test(videoUrl)) {
     showMessage(postMessage, "Please enter a valid video URL.");
     return;
@@ -250,6 +298,20 @@ publishButton?.addEventListener("click", async () => {
 
   try {
     publishButton.disabled = true;
+
+    let mediaUrl = videoUrl;
+    let mediaType = videoUrl ? "video" : "";
+
+    // Upload selected gallery file
+    if (selectedFile) {
+      showMessage(postMessage, "Uploading your photo/video... Please wait.");
+
+      const uploadedMedia = await uploadToCloudinary(selectedFile);
+
+      mediaUrl = uploadedMedia.url;
+      mediaType = uploadedMedia.type;
+    }
+
     showMessage(postMessage, "Publishing your post...");
 
     await addDoc(collection(db, "posts"), {
@@ -257,7 +319,14 @@ publishButton?.addEventListener("click", async () => {
       text,
       description: text,
       category,
-      videoUrl,
+
+      // Media information
+      mediaUrl: mediaUrl || "",
+      mediaType: mediaType || "",
+
+      // Keep old video field for compatibility
+      videoUrl: mediaType === "video" ? mediaUrl : "",
+
       userId: currentUser.uid,
       userName: currentUser.displayName || "Rami Creator",
       likes: 0,
@@ -268,11 +337,14 @@ publishButton?.addEventListener("click", async () => {
 
     postTitle.value = "";
     postText.value = "";
-    postVideoUrl.value = "";
-    postMedia.value = "";
+
+    if (postVideoUrl) postVideoUrl.value = "";
+    if (postMedia) postMedia.value = "";
 
     showMessage(postMessage, "Your post is live on Rami! 🇵🇰");
+
   } catch (error) {
+    console.error("Publish error:", error);
     showMessage(postMessage, error.message);
   } finally {
     publishButton.disabled = false;
@@ -296,9 +368,14 @@ function listenToPosts() {
 
     renderPosts();
     updateProfileStats();
+
   }, error => {
     console.error("Posts error:", error);
-    feedList.textContent = "Unable to load posts: " + error.message;
+
+    if (feedList) {
+      feedList.textContent =
+        "Unable to load posts: " + error.message;
+    }
   });
 }
 
@@ -309,7 +386,9 @@ function renderPosts() {
   let posts = [...allPosts];
 
   if (activeFilter !== "all") {
-    posts = posts.filter(post => post.category === activeFilter);
+    posts = posts.filter(
+      post => post.category === activeFilter
+    );
   }
 
   if (posts.length === 0) {
@@ -319,17 +398,43 @@ function renderPosts() {
   }
 
   feedList.innerHTML = posts.map(post => {
-    const likedBy = Array.isArray(post.likedBy) ? post.likedBy : [];
-    const comments = Array.isArray(post.comments) ? post.comments : [];
+    const likedBy = Array.isArray(post.likedBy)
+      ? post.likedBy
+      : [];
+
+    const comments = Array.isArray(post.comments)
+      ? post.comments
+      : [];
 
     const liked = currentUser &&
       likedBy.includes(currentUser.uid);
 
     const isFollowing = followedUsers.has(post.userId);
 
-    const video = post.videoUrl
-      ? `<video controls playsinline preload="metadata" src="${escapeHTML(post.videoUrl)}"></video>`
-      : "";
+    const mediaUrl = post.mediaUrl || post.videoUrl || "";
+
+    const mediaType = post.mediaType ||
+      (post.videoUrl ? "video" : "");
+
+    let mediaHTML = "";
+
+    if (mediaUrl && mediaType === "video") {
+      mediaHTML = `
+        <video
+          controls
+          playsinline
+          preload="metadata"
+          src="${escapeHTML(mediaUrl)}">
+        </video>
+      `;
+    } else if (mediaUrl && mediaType === "image") {
+      mediaHTML = `
+        <img
+          src="${escapeHTML(mediaUrl)}"
+          alt="Rami post photo"
+          loading="lazy">
+      `;
+    }
 
     const date = post.createdAt?.toDate
       ? post.createdAt.toDate().toLocaleString()
@@ -337,6 +442,7 @@ function renderPosts() {
 
     return `
       <article class="rami-post" data-id="${escapeHTML(post.id)}">
+
         <h3>${escapeHTML(post.title || "Rami Post")}</h3>
 
         <p>
@@ -344,13 +450,14 @@ function renderPosts() {
           · ${escapeHTML(date)}
         </p>
 
-        ${video}
+        ${mediaHTML}
 
         <p>${escapeHTML(post.text || post.description || "")}</p>
 
         <p>Category: ${escapeHTML(post.category || "General")}</p>
 
         <div class="post-actions">
+
           <button class="like-button" data-id="${escapeHTML(post.id)}">
             ${liked ? "❤️" : "🤍"} Like ${Number(post.likes) || 0}
           </button>
@@ -366,39 +473,55 @@ function renderPosts() {
           <button class="share-button" data-id="${escapeHTML(post.id)}">
             ↗ Share
           </button>
+
         </div>
 
         <div class="comment-area">
-          <input class="comment-input" placeholder="Write a comment...">
+
+          <input
+            class="comment-input"
+            placeholder="Write a comment...">
+
           <div class="comments-list">
             ${comments.map(comment => `
-              <p><strong>${escapeHTML(comment.userName || "User")}:</strong>
-              ${escapeHTML(comment.text || "")}</p>
+              <p>
+                <strong>${escapeHTML(comment.userName || "User")}:</strong>
+                ${escapeHTML(comment.text || "")}
+              </p>
             `).join("")}
           </div>
+
         </div>
+
       </article>
     `;
   }).join("");
 
   feedList.querySelectorAll(".like-button").forEach(button => {
-    button.addEventListener("click", () => likePost(button.dataset.id));
+    button.addEventListener("click", () => {
+      likePost(button.dataset.id);
+    });
   });
 
   feedList.querySelectorAll(".comment-button").forEach(button => {
     button.addEventListener("click", () => {
       const article = button.closest(".rami-post");
       const input = article.querySelector(".comment-input");
+
       addComment(button.dataset.id, input.value);
     });
   });
 
   feedList.querySelectorAll(".follow-button").forEach(button => {
-    button.addEventListener("click", () => followCreator(button.dataset.id));
+    button.addEventListener("click", () => {
+      followCreator(button.dataset.id);
+    });
   });
 
   feedList.querySelectorAll(".share-button").forEach(button => {
-    button.addEventListener("click", () => sharePost(button.dataset.id));
+    button.addEventListener("click", () => {
+      sharePost(button.dataset.id);
+    });
   });
 }
 
@@ -418,7 +541,11 @@ async function likePost(postId) {
       if (!snapshot.exists()) return;
 
       const data = snapshot.data();
-      const likedBy = Array.isArray(data.likedBy) ? data.likedBy : [];
+
+      const likedBy = Array.isArray(data.likedBy)
+        ? data.likedBy
+        : [];
+
       const alreadyLiked = likedBy.includes(currentUser.uid);
 
       const updatedLikes = alreadyLiked
@@ -430,6 +557,7 @@ async function likePost(postId) {
         likes: updatedLikes.length
       });
     });
+
   } catch (error) {
     alert("Like error: " + error.message);
   }
@@ -458,6 +586,7 @@ async function addComment(postId, text) {
       if (!snapshot.exists()) return;
 
       const data = snapshot.data();
+
       const comments = Array.isArray(data.comments)
         ? data.comments
         : [];
@@ -471,6 +600,7 @@ async function addComment(postId, text) {
 
       transaction.update(postRef, { comments });
     });
+
   } catch (error) {
     alert("Comment error: " + error.message);
   }
@@ -492,6 +622,7 @@ async function loadFollowedUsers() {
         followedUsers.add(data.followingId);
       }
     });
+
   } catch (error) {
     console.error("Follow loading error:", error);
   }
@@ -522,8 +653,10 @@ async function followCreator(creatorId) {
     });
 
     followedUsers.add(creatorId);
+
     renderPosts();
     loadCreators();
+
   } catch (error) {
     alert("Follow error: " + error.message);
   }
@@ -531,7 +664,8 @@ async function followCreator(creatorId) {
 
 // Share post
 async function sharePost(postId) {
-  const link = `${location.origin}${location.pathname}#post-${postId}`;
+  const link =
+    `${location.origin}${location.pathname}#post-${postId}`;
 
   try {
     if (navigator.share) {
@@ -540,12 +674,15 @@ async function sharePost(postId) {
         text: "Check out this post on Rami!",
         url: link
       });
+
     } else if (navigator.clipboard) {
       await navigator.clipboard.writeText(link);
       alert("Post link copied!");
+
     } else {
       prompt("Copy this post link:", link);
     }
+
   } catch (error) {
     console.log("Share cancelled:", error);
   }
@@ -566,24 +703,43 @@ async function loadCreators() {
     creatorList.innerHTML = snapshot.docs.map(item => {
       const data = item.data();
       const creatorId = item.id;
-      const name = data.name || data.username || "Rami Creator";
+
+      const name =
+        data.name || data.username || "Rami Creator";
 
       return `
         <div>
+
           <strong>${escapeHTML(name)}</strong>
-          <p>${creatorId === currentUser.uid ? "You" : "Rami Creator"}</p>
+
+          <p>
+            ${creatorId === currentUser.uid
+              ? "You"
+              : "Rami Creator"}
+          </p>
+
           ${creatorId !== currentUser.uid ? `
-            <button class="creator-follow" data-id="${escapeHTML(creatorId)}">
-              ${followedUsers.has(creatorId) ? "Following" : "Follow"}
+            <button
+              class="creator-follow"
+              data-id="${escapeHTML(creatorId)}">
+
+              ${followedUsers.has(creatorId)
+                ? "Following"
+                : "Follow"}
+
             </button>
           ` : ""}
+
         </div>
       `;
     }).join("");
 
     creatorList.querySelectorAll(".creator-follow").forEach(button => {
-      button.addEventListener("click", () => followCreator(button.dataset.id));
+      button.addEventListener("click", () => {
+        followCreator(button.dataset.id);
+      });
     });
+
   } catch (error) {
     console.error("Creator loading error:", error);
   }
@@ -608,7 +764,9 @@ saveMemoryButton?.addEventListener("click", async () => {
     });
 
     showMessage(memoryMessage, "Your memory has been saved ❤️");
+
     loadMemories();
+
   } catch (error) {
     showMessage(memoryMessage, error.message);
   }
@@ -622,25 +780,35 @@ async function loadMemories() {
     const snapshot = await getDocs(collection(db, "memories"));
 
     const memories = snapshot.docs
-      .map(item => ({ id: item.id, ...item.data() }))
+      .map(item => ({
+        id: item.id,
+        ...item.data()
+      }))
       .filter(item => item.userId === currentUser.uid)
       .sort((a, b) => {
         const first = a.createdAt?.toMillis?.() || 0;
         const second = b.createdAt?.toMillis?.() || 0;
+
         return second - first;
       });
 
     if (memories.length === 0) {
-      memoryList.innerHTML = "<p>Your saved memories will appear here.</p>";
+      memoryList.innerHTML =
+        "<p>Your saved memories will appear here.</p>";
+
       return;
     }
 
     memoryList.innerHTML = memories.map(memory => `
       <div>
+
         <p>${escapeHTML(memory.text)}</p>
+
         <small>Saved on Rami ❤️</small>
+
       </div>
     `).join("");
+
   } catch (error) {
     showMessage(memoryMessage, error.message);
   }
@@ -664,8 +832,12 @@ function updateProfileStats() {
 }
 
 // Category filters
-document.querySelectorAll(".categories button[data-filter]").forEach(button => {
+document.querySelectorAll(
+  ".categories button[data-filter]"
+).forEach(button => {
+
   button.addEventListener("click", () => {
+
     activeFilter = button.dataset.filter || "all";
 
     document.querySelectorAll(".categories button").forEach(item => {
@@ -673,12 +845,14 @@ document.querySelectorAll(".categories button[data-filter]").forEach(button => {
     });
 
     button.classList.add("active");
+
     renderPosts();
   });
 });
 
 // Navigation
 function navigateTo(page) {
+
   const destinations = {
     Home: "homeFeed",
     Discover: "discoverPanel",
@@ -697,17 +871,25 @@ function navigateTo(page) {
   }
 
   if (page === "Memories") {
-    memoryList?.scrollIntoView({ behavior: "smooth" });
+    memoryList?.scrollIntoView({
+      behavior: "smooth"
+    });
   }
 }
 
-document.querySelectorAll(".bottom-nav button[data-page]").forEach(button => {
+document.querySelectorAll(
+  ".bottom-nav button[data-page]"
+).forEach(button => {
+
   button.addEventListener("click", () => {
     navigateTo(button.dataset.page);
   });
 });
 
-document.querySelectorAll(".categories button[data-page]").forEach(button => {
+document.querySelectorAll(
+  ".categories button[data-page]"
+).forEach(button => {
+
   button.addEventListener("click", () => {
     navigateTo(button.dataset.page);
   });
