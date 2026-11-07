@@ -1,4 +1,3 @@
-// RAMI - Firebase Connected App
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
@@ -48,87 +47,68 @@ let activeFilter = "all";
 let stopPostsListener = null;
 let followedUsers = new Set();
 
-// Elements
-const authPanel = document.getElementById("authPanel");
-const accountPanel = document.getElementById("accountPanel");
-const authName = document.getElementById("authName");
-const authEmail = document.getElementById("authEmail");
-const authPassword = document.getElementById("authPassword");
-const authMessage = document.getElementById("authMessage");
+// HTML elements
+const $ = id => document.getElementById(id);
 
-const welcomeUser = document.getElementById("welcomeUser");
-const userEmail = document.getElementById("userEmail");
+const authPanel = $("authPanel");
+const accountPanel = $("accountPanel");
+const authName = $("authName");
+const authEmail = $("authEmail");
+const authPassword = $("authPassword");
+const authMessage = $("authMessage");
 
-const postTitle = document.getElementById("postTitle");
-const postCategory = document.getElementById("postCategory");
-const postText = document.getElementById("postText");
-const postMessage = document.getElementById("postMessage");
+const welcomeUser = $("welcomeUser");
+const userEmail = $("userEmail");
 
-const feedList = document.getElementById("feedList");
-const creatorList = document.getElementById("creatorList");
-const profileName = document.getElementById("profileName");
-const profileStats = document.getElementById("profileStats");
-const memoryList = document.getElementById("memoryList");
-const memoryMessage = document.getElementById("memoryMessage");
+const postTitle = $("postTitle");
+const postCategory = $("postCategory");
+const postText = $("postText");
+const postMessage = $("postMessage");
+const postMedia = $("postMedia");
+const postVideoUrl = $("postVideoUrl");
 
-// Helpers
+const feedList = $("feedList");
+const creatorList = $("creatorList");
+const profileName = $("profileName");
+const profileStats = $("profileStats");
+const memoryList = $("memoryList");
+const memoryMessage = $("memoryMessage");
+
+const signupButton = $("signupButton");
+const loginButton = $("loginButton");
+const logoutButton = $("logoutButton");
+const publishButton = $("publishButton");
+const saveMemoryButton = $("saveMemoryButton");
+const profileButton = $("profileButton");
+
+// Safe HTML text
+function escapeHTML(value = "") {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
+  })[char]);
+}
+
 function showMessage(element, message) {
   if (element) element.textContent = message;
 }
 
-function safeText(value) {
-  return String(value ?? "");
-}
-
-function requireLogin() {
-  if (!currentUser) {
-    alert("Please log in to Rami first.");
-    return false;
-  }
-  return true;
-}
-
-function readableDate(timestamp) {
-  if (!timestamp) return "Just now";
-
-  const date = timestamp.toDate
-    ? timestamp.toDate()
-    : new Date(timestamp);
-
-  return date.toLocaleString();
-}
-
-function normalizeComments(comments) {
-  return Array.isArray(comments) ? comments : [];
-}
-
-function makeElement(tag, className, text) {
-  const element = document.createElement(tag);
-
-  if (className) element.className = className;
-  if (text !== undefined) element.textContent = text;
-
-  return element;
-}
-
 // Sign up
-document.getElementById("signupButton").addEventListener("click", async () => {
+signupButton?.addEventListener("click", async () => {
   const name = authName.value.trim();
   const email = authEmail.value.trim();
   const password = authPassword.value;
 
   if (!name || !email || !password) {
-    showMessage(authMessage, "Please fill in all fields.");
-    return;
-  }
-
-  if (password.length < 6) {
-    showMessage(authMessage, "Password must have at least 6 characters.");
+    showMessage(authMessage, "Please enter your name, email and password.");
     return;
   }
 
   try {
-    showMessage(authMessage, "Creating your account...");
+    showMessage(authMessage, "Creating your Rami account...");
 
     const result = await createUserWithEmailAndPassword(
       auth,
@@ -147,14 +127,14 @@ document.getElementById("signupButton").addEventListener("click", async () => {
       createdAt: serverTimestamp()
     });
 
-    showMessage(authMessage, "Welcome to Rami!");
+    showMessage(authMessage, "Account created successfully!");
   } catch (error) {
     showMessage(authMessage, error.message);
   }
 });
 
-// Log in
-document.getElementById("loginButton").addEventListener("click", async () => {
+// Login
+loginButton?.addEventListener("click", async () => {
   const email = authEmail.value.trim();
   const password = authPassword.value;
 
@@ -174,8 +154,8 @@ document.getElementById("loginButton").addEventListener("click", async () => {
   }
 });
 
-// Log out
-document.getElementById("logoutButton").addEventListener("click", async () => {
+// Logout
+logoutButton?.addEventListener("click", async () => {
   try {
     await signOut(auth);
   } catch (error) {
@@ -184,97 +164,92 @@ document.getElementById("logoutButton").addEventListener("click", async () => {
 });
 
 // Authentication state
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async user => {
   currentUser = user;
 
   if (user) {
     authPanel.hidden = true;
     accountPanel.hidden = false;
 
-    welcomeUser.textContent =
-      "Welcome, " + (user.displayName || "Rami user") + "!";
+    const name = user.displayName || "Rami Creator";
 
+    welcomeUser.textContent = `Welcome, ${name}!`;
     userEmail.textContent = user.email || "";
+    profileName.textContent = name;
 
-    await loadMyProfile();
+    await loadProfile();
     await loadFollowedUsers();
     listenToPosts();
-    await loadCreators();
-    await loadMemories();
+    loadCreators();
+    loadMemories();
   } else {
     authPanel.hidden = false;
     accountPanel.hidden = true;
-
-    allPosts = [];
-    followedUsers.clear();
 
     if (stopPostsListener) {
       stopPostsListener();
       stopPostsListener = null;
     }
 
-    profileName.textContent = "Log in to see your profile.";
-    profileStats.textContent = "";
-    creatorList.textContent = "Log in to discover creators.";
-    memoryList.replaceChildren();
+    allPosts = [];
+    followedUsers.clear();
 
     renderPosts();
   }
 });
 
 // Load profile
-async function loadMyProfile() {
+async function loadProfile() {
   if (!currentUser) return;
 
   try {
-    const userRef = doc(db, "users", currentUser.uid);
-    const snapshot = await getDoc(userRef);
+    const userDoc = await getDoc(
+      doc(db, "users", currentUser.uid)
+    );
 
-    const name = snapshot.exists()
-      ? snapshot.data().name
-      : currentUser.displayName || "Rami user";
-
-    profileName.textContent = name;
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      profileName.textContent =
+        data.name || currentUser.displayName || "Rami Creator";
+    }
   } catch (error) {
-    profileName.textContent = currentUser.displayName || "Rami user";
-  }
-}
-
-// Load followed users
-async function loadFollowedUsers() {
-  if (!currentUser) return;
-
-  followedUsers.clear();
-
-  try {
-    const snapshot = await getDocs(collection(db, "follows"));
-
-    snapshot.forEach((item) => {
-      const data = item.data();
-
-      if (data.followerId === currentUser.uid) {
-        followedUsers.add(data.creatorId);
-      }
-    });
-  } catch (error) {
-    console.error("Follow loading error:", error);
+    console.error("Profile error:", error);
   }
 }
 
 // Publish post
-document.getElementById("publishButton").addEventListener("click", async () => {
-  if (!requireLogin()) return;
+publishButton?.addEventListener("click", async () => {
+  if (!currentUser) {
+    showMessage(postMessage, "Please login first.");
+    return;
+  }
 
   const title = postTitle.value.trim();
   const text = postText.value.trim();
   const category = postCategory.value;
+  const videoUrl = postVideoUrl?.value.trim() || "";
+  const selectedFile = postMedia?.files?.[0];
 
-  if (!text) {
-    showMessage(postMessage, "Please write something first.");
+  if (!title && !text && !videoUrl && !selectedFile) {
+    showMessage(postMessage, "Write something before publishing.");
+    return;
+  }
+
+  if (selectedFile && !videoUrl) {
+    showMessage(
+      postMessage,
+      "Video/photo upload is not active yet. Firebase Storage requires a billing upgrade. You can publish text or use a direct video URL."
+    );
+    return;
+  }
+
+  if (videoUrl && !/^https?:\/\//i.test(videoUrl)) {
+    showMessage(postMessage, "Please enter a valid video URL.");
     return;
   }
 
   try {
+    publishButton.disabled = true;
     showMessage(postMessage, "Publishing your post...");
 
     await addDoc(collection(db, "posts"), {
@@ -282,8 +257,9 @@ document.getElementById("publishButton").addEventListener("click", async () => {
       text,
       description: text,
       category,
+      videoUrl,
       userId: currentUser.uid,
-      userName: currentUser.displayName || "Rami user",
+      userName: currentUser.displayName || "Rami Creator",
       likes: 0,
       likedBy: [],
       comments: [],
@@ -292,14 +268,18 @@ document.getElementById("publishButton").addEventListener("click", async () => {
 
     postTitle.value = "";
     postText.value = "";
+    postVideoUrl.value = "";
+    postMedia.value = "";
 
-    showMessage(postMessage, "Your post is now on Rami!");
+    showMessage(postMessage, "Your post is live on Rami! 🇵🇰");
   } catch (error) {
     showMessage(postMessage, error.message);
+  } finally {
+    publishButton.disabled = false;
   }
 });
 
-// Listen to posts
+// Listen for posts
 function listenToPosts() {
   if (stopPostsListener) stopPostsListener();
 
@@ -308,482 +288,433 @@ function listenToPosts() {
     orderBy("createdAt", "desc")
   );
 
-  stopPostsListener = onSnapshot(
-    postsQuery,
-    (snapshot) => {
-      allPosts = snapshot.docs.map((item) => ({
-        id: item.id,
-        ...item.data()
-      }));
+  stopPostsListener = onSnapshot(postsQuery, snapshot => {
+    allPosts = snapshot.docs.map(item => ({
+      id: item.id,
+      ...item.data()
+    }));
 
-      renderPosts();
-    },
-    (error) => {
-      console.error("Feed error:", error);
-      showMessage(postMessage, "Could not load feed: " + error.message);
-    }
-  );
+    renderPosts();
+    updateProfileStats();
+  }, error => {
+    console.error("Posts error:", error);
+    feedList.textContent = "Unable to load posts: " + error.message;
+  });
 }
 
 // Render feed
 function renderPosts() {
-  feedList.replaceChildren();
+  if (!feedList) return;
 
-  let posts = allPosts;
+  let posts = [...allPosts];
 
   if (activeFilter !== "all") {
-    posts = posts.filter(
-      (post) => post.category === activeFilter
-    );
+    posts = posts.filter(post => post.category === activeFilter);
   }
 
-  if (!posts.length) {
-    const empty = makeElement(
-      "div",
-      "feed",
-      currentUser
-        ? "No posts here yet. Be the first to share something!"
-        : "Welcome to Rami! Log in to explore the community."
-    );
-
-    feedList.appendChild(empty);
+  if (posts.length === 0) {
+    feedList.innerHTML =
+      "<p>No posts here yet. Be the first to share something!</p>";
     return;
   }
 
-  posts.forEach((post) => {
-    const card = makeElement("article", "feed");
+  feedList.innerHTML = posts.map(post => {
+    const likedBy = Array.isArray(post.likedBy) ? post.likedBy : [];
+    const comments = Array.isArray(post.comments) ? post.comments : [];
 
-    const category = makeElement(
-      "div",
-      "feed-meta",
-      safeText(post.category || "Community")
-    );
-
-    const title = makeElement(
-      "h3",
-      "",
-      safeText(post.title || "Rami post")
-    );
-
-    const text = makeElement(
-      "p",
-      "",
-      safeText(post.text || post.description)
-    );
-
-    const meta = makeElement(
-      "div",
-      "feed-meta",
-      "By " + safeText(post.userName || "Rami user") +
-      " • " + readableDate(post.createdAt)
-    );
-
-    card.append(category, title, text, meta);
-
-    const actions = makeElement("div", "feed-actions");
-
-    const likedBy = Array.isArray(post.likedBy)
-      ? post.likedBy
-      : [];
-
-    const isLiked = currentUser &&
+    const liked = currentUser &&
       likedBy.includes(currentUser.uid);
 
-    const likeButton = makeElement(
-      "button",
-      "",
-      (isLiked ? "❤️ " : "🤍 ") +
-      "Like " + (post.likes || 0)
-    );
+    const isFollowing = followedUsers.has(post.userId);
 
-    likeButton.addEventListener("click", () => {
-      likePost(post.id);
-    });
+    const video = post.videoUrl
+      ? `<video controls playsinline preload="metadata" src="${escapeHTML(post.videoUrl)}"></video>`
+      : "";
 
-    const commentButton = makeElement(
-      "button",
-      "",
-      "💬 Comment"
-    );
+    const date = post.createdAt?.toDate
+      ? post.createdAt.toDate().toLocaleString()
+      : "Just now";
 
-    commentButton.addEventListener("click", () => {
-      commentInput.focus();
-    });
+    return `
+      <article class="rami-post" data-id="${escapeHTML(post.id)}">
+        <h3>${escapeHTML(post.title || "Rami Post")}</h3>
 
-    const followButton = makeElement(
-      "button",
-      "follow-button",
-      followedUsers.has(post.userId)
-        ? "Following ✓"
-        : "＋ Follow"
-    );
+        <p>
+          By ${escapeHTML(post.userName || "Rami Creator")}
+          · ${escapeHTML(date)}
+        </p>
 
-    if (
-      !currentUser ||
-      post.userId === currentUser.uid ||
-      followedUsers.has(post.userId)
-    ) {
-      followButton.disabled = true;
-    }
+        ${video}
 
-    followButton.addEventListener("click", () => {
-      followCreator(post.userId);
-    });
+        <p>${escapeHTML(post.text || post.description || "")}</p>
 
-    const shareButton = makeElement(
-      "button",
-      "",
-      "↗ Share"
-    );
+        <p>Category: ${escapeHTML(post.category || "General")}</p>
 
-    shareButton.addEventListener("click", async () => {
-      const shareData = {
-        title: "Rami",
-        text: safeText(post.title || post.text),
-        url: location.href
-      };
+        <div class="post-actions">
+          <button class="like-button" data-id="${escapeHTML(post.id)}">
+            ${liked ? "❤️" : "🤍"} Like ${Number(post.likes) || 0}
+          </button>
 
-      try {
-        if (navigator.share) {
-          await navigator.share(shareData);
-        } else if (navigator.clipboard) {
-          await navigator.clipboard.writeText(
-            shareData.text + " - " + shareData.url
-          );
-          alert("Post link copied!");
-        } else {
-          alert("Sharing is not supported on this browser.");
-        }
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          alert("Could not share this post.");
-        }
-      }
-    });
+          <button class="comment-button" data-id="${escapeHTML(post.id)}">
+            💬 Comment
+          </button>
 
-    actions.append(
-      likeButton,
-      commentButton,
-      followButton,
-      shareButton
-    );
+          <button class="follow-button" data-id="${escapeHTML(post.userId)}">
+            ${isFollowing ? "Following" : "Follow"}
+          </button>
 
-    const commentArea = makeElement("div", "comment-area");
+          <button class="share-button" data-id="${escapeHTML(post.id)}">
+            ↗ Share
+          </button>
+        </div>
 
-    const commentInput = makeElement("input");
-    commentInput.type = "text";
-    commentInput.placeholder = "Write a comment...";
+        <div class="comment-area">
+          <input class="comment-input" placeholder="Write a comment...">
+          <div class="comments-list">
+            ${comments.map(comment => `
+              <p><strong>${escapeHTML(comment.userName || "User")}:</strong>
+              ${escapeHTML(comment.text || "")}</p>
+            `).join("")}
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
 
-    const sendComment = makeElement(
-      "button",
-      "action-button",
-      "Send"
-    );
-
-    sendComment.addEventListener("click", async () => {
-      const value = commentInput.value.trim();
-
-      if (!value) return;
-
-      if (!requireLogin()) return;
-
-      sendComment.disabled = true;
-
-      try {
-        await addComment(post.id, value);
-        commentInput.value = "";
-      } catch (error) {
-        alert(error.message);
-      } finally {
-        sendComment.disabled = false;
-      }
-    });
-
-    commentInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        sendComment.click();
-      }
-    });
-
-    commentArea.append(commentInput, sendComment);
-
-    const commentList = makeElement("div", "comment-list");
-
-    const comments = normalizeComments(post.comments);
-
-    comments.slice(-5).forEach((comment) => {
-      const line = makeElement(
-        "p",
-        "",
-        safeText(comment.userName) + ": " +
-        safeText(comment.text)
-      );
-
-      commentList.appendChild(line);
-    });
-
-    card.append(actions, commentArea, commentList);
-    feedList.appendChild(card);
+  feedList.querySelectorAll(".like-button").forEach(button => {
+    button.addEventListener("click", () => likePost(button.dataset.id));
   });
 
-  profileStats.textContent =
-    "Your posts: " +
-    allPosts.filter(
-      (post) => currentUser && post.userId === currentUser.uid
-    ).length;
+  feedList.querySelectorAll(".comment-button").forEach(button => {
+    button.addEventListener("click", () => {
+      const article = button.closest(".rami-post");
+      const input = article.querySelector(".comment-input");
+      addComment(button.dataset.id, input.value);
+    });
+  });
+
+  feedList.querySelectorAll(".follow-button").forEach(button => {
+    button.addEventListener("click", () => followCreator(button.dataset.id));
+  });
+
+  feedList.querySelectorAll(".share-button").forEach(button => {
+    button.addEventListener("click", () => sharePost(button.dataset.id));
+  });
 }
 
 // Like post
 async function likePost(postId) {
-  if (!requireLogin()) return;
+  if (!currentUser) {
+    alert("Please login to like posts.");
+    return;
+  }
 
   try {
     const postRef = doc(db, "posts", postId);
 
-    await runTransaction(db, async (transaction) => {
+    await runTransaction(db, async transaction => {
       const snapshot = await transaction.get(postRef);
 
       if (!snapshot.exists()) return;
 
       const data = snapshot.data();
-      const likedBy = Array.isArray(data.likedBy)
-        ? data.likedBy
-        : [];
-
+      const likedBy = Array.isArray(data.likedBy) ? data.likedBy : [];
       const alreadyLiked = likedBy.includes(currentUser.uid);
 
-      const updatedLikedBy = alreadyLiked
-        ? likedBy.filter((id) => id !== currentUser.uid)
+      const updatedLikes = alreadyLiked
+        ? likedBy.filter(id => id !== currentUser.uid)
         : [...likedBy, currentUser.uid];
 
       transaction.update(postRef, {
-        likedBy: updatedLikedBy,
-        likes: updatedLikedBy.length
+        likedBy: updatedLikes,
+        likes: updatedLikes.length
       });
     });
   } catch (error) {
-    alert(error.message);
+    alert("Like error: " + error.message);
   }
 }
 
 // Add comment
 async function addComment(postId, text) {
-  const postRef = doc(db, "posts", postId);
+  if (!currentUser) {
+    alert("Please login to comment.");
+    return;
+  }
 
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(postRef);
+  text = text.trim();
 
-    if (!snapshot.exists()) {
-      throw new Error("Post not found.");
-    }
+  if (!text) {
+    alert("Write a comment first.");
+    return;
+  }
 
-    const comments = normalizeComments(snapshot.data().comments);
+  try {
+    const postRef = doc(db, "posts", postId);
 
-    comments.push({
-      userId: currentUser.uid,
-      userName: currentUser.displayName || "Rami user",
-      text,
-      createdAt: new Date().toISOString()
+    await runTransaction(db, async transaction => {
+      const snapshot = await transaction.get(postRef);
+
+      if (!snapshot.exists()) return;
+
+      const data = snapshot.data();
+      const comments = Array.isArray(data.comments)
+        ? data.comments
+        : [];
+
+      comments.push({
+        userId: currentUser.uid,
+        userName: currentUser.displayName || "Rami Creator",
+        text,
+        createdAt: new Date().toISOString()
+      });
+
+      transaction.update(postRef, { comments });
     });
+  } catch (error) {
+    alert("Comment error: " + error.message);
+  }
+}
 
-    transaction.update(postRef, {
-      comments
+// Load followed creators
+async function loadFollowedUsers() {
+  if (!currentUser) return;
+
+  try {
+    const snapshot = await getDocs(collection(db, "follows"));
+
+    followedUsers.clear();
+
+    snapshot.forEach(item => {
+      const data = item.data();
+
+      if (data.followerId === currentUser.uid) {
+        followedUsers.add(data.followingId);
+      }
     });
-  });
+  } catch (error) {
+    console.error("Follow loading error:", error);
+  }
 }
 
 // Follow creator
 async function followCreator(creatorId) {
-  if (!requireLogin()) return;
+  if (!currentUser) {
+    alert("Please login to follow creators.");
+    return;
+  }
 
-  if (creatorId === currentUser.uid) return;
+  if (!creatorId || creatorId === currentUser.uid) return;
 
-  const followId = currentUser.uid + "_" + creatorId;
+  const followId = `${currentUser.uid}_${creatorId}`;
+  const followRef = doc(db, "follows", followId);
 
   try {
-    await setDoc(
-      doc(db, "follows", followId),
-      {
-        followerId: currentUser.uid,
-        creatorId,
-        createdAt: serverTimestamp()
-      }
-    );
+    if (followedUsers.has(creatorId)) {
+      alert("You are already following this creator.");
+      return;
+    }
+
+    await setDoc(followRef, {
+      followerId: currentUser.uid,
+      followingId: creatorId,
+      createdAt: serverTimestamp()
+    });
 
     followedUsers.add(creatorId);
     renderPosts();
-    await loadCreators();
+    loadCreators();
   } catch (error) {
-    alert(error.message);
+    alert("Follow error: " + error.message);
+  }
+}
+
+// Share post
+async function sharePost(postId) {
+  const link = `${location.origin}${location.pathname}#post-${postId}`;
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: "Rami",
+        text: "Check out this post on Rami!",
+        url: link
+      });
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(link);
+      alert("Post link copied!");
+    } else {
+      prompt("Copy this post link:", link);
+    }
+  } catch (error) {
+    console.log("Share cancelled:", error);
   }
 }
 
 // Discover creators
 async function loadCreators() {
-  if (!currentUser) return;
-
-  creatorList.textContent = "Loading creators...";
+  if (!currentUser || !creatorList) return;
 
   try {
     const snapshot = await getDocs(collection(db, "users"));
 
-    creatorList.replaceChildren();
-
-    let count = 0;
-
-    snapshot.forEach((item) => {
-      if (item.id === currentUser.uid) return;
-
-      const data = item.data();
-      count++;
-
-      const row = makeElement("div", "creator-item");
-
-      const name = makeElement(
-        "span",
-        "",
-        safeText(data.name || data.username || "Rami creator")
-      );
-
-      const button = makeElement(
-        "button",
-        "follow-button",
-        followedUsers.has(item.id) ? "Following ✓" : "＋ Follow"
-      );
-
-      if (followedUsers.has(item.id)) {
-        button.disabled = true;
-      }
-
-      button.addEventListener("click", () => {
-        followCreator(item.id);
-      });
-
-      row.append(name, button);
-      creatorList.appendChild(row);
-    });
-
-    if (!count) {
-      creatorList.textContent = "No creators yet. Invite your friends!";
+    if (snapshot.empty) {
+      creatorList.textContent = "No creators yet.";
+      return;
     }
+
+    creatorList.innerHTML = snapshot.docs.map(item => {
+      const data = item.data();
+      const creatorId = item.id;
+      const name = data.name || data.username || "Rami Creator";
+
+      return `
+        <div>
+          <strong>${escapeHTML(name)}</strong>
+          <p>${creatorId === currentUser.uid ? "You" : "Rami Creator"}</p>
+          ${creatorId !== currentUser.uid ? `
+            <button class="creator-follow" data-id="${escapeHTML(creatorId)}">
+              ${followedUsers.has(creatorId) ? "Following" : "Follow"}
+            </button>
+          ` : ""}
+        </div>
+      `;
+    }).join("");
+
+    creatorList.querySelectorAll(".creator-follow").forEach(button => {
+      button.addEventListener("click", () => followCreator(button.dataset.id));
+    });
   } catch (error) {
-    creatorList.textContent = error.message;
+    console.error("Creator loading error:", error);
   }
 }
 
 // Save memory
-document.getElementById("saveMemoryButton").addEventListener(
-  "click",
-  async () => {
-    if (!requireLogin()) return;
-
-    const memory = prompt("Write your memory:");
-
-    if (!memory || !memory.trim()) return;
-
-    try {
-      showMessage(memoryMessage, "Saving your memory...");
-
-      await addDoc(collection(db, "memories"), {
-        userId: currentUser.uid,
-        text: memory.trim(),
-        createdAt: serverTimestamp()
-      });
-
-      showMessage(memoryMessage, "Memory saved successfully!");
-      await loadMemories();
-    } catch (error) {
-      showMessage(memoryMessage, error.message);
-    }
+saveMemoryButton?.addEventListener("click", async () => {
+  if (!currentUser) {
+    showMessage(memoryMessage, "Please login first.");
+    return;
   }
-);
+
+  const memoryText = prompt("Write your memory:");
+
+  if (!memoryText || !memoryText.trim()) return;
+
+  try {
+    await addDoc(collection(db, "memories"), {
+      userId: currentUser.uid,
+      text: memoryText.trim(),
+      createdAt: serverTimestamp()
+    });
+
+    showMessage(memoryMessage, "Your memory has been saved ❤️");
+    loadMemories();
+  } catch (error) {
+    showMessage(memoryMessage, error.message);
+  }
+});
 
 // Load memories
 async function loadMemories() {
-  if (!currentUser) return;
-
-  memoryList.textContent = "Loading memories...";
+  if (!currentUser || !memoryList) return;
 
   try {
     const snapshot = await getDocs(collection(db, "memories"));
 
-    memoryList.replaceChildren();
+    const memories = snapshot.docs
+      .map(item => ({ id: item.id, ...item.data() }))
+      .filter(item => item.userId === currentUser.uid)
+      .sort((a, b) => {
+        const first = a.createdAt?.toMillis?.() || 0;
+        const second = b.createdAt?.toMillis?.() || 0;
+        return second - first;
+      });
 
-    let count = 0;
-
-    snapshot.forEach((item) => {
-      const data = item.data();
-
-      if (data.userId !== currentUser.uid) return;
-
-      count++;
-
-      const memory = makeElement(
-        "div",
-        "memory-item",
-        safeText(data.text)
-      );
-
-      memoryList.appendChild(memory);
-    });
-
-    if (!count) {
-      memoryList.textContent = "Your saved memories will appear here.";
+    if (memories.length === 0) {
+      memoryList.innerHTML = "<p>Your saved memories will appear here.</p>";
+      return;
     }
+
+    memoryList.innerHTML = memories.map(memory => `
+      <div>
+        <p>${escapeHTML(memory.text)}</p>
+        <small>Saved on Rami ❤️</small>
+      </div>
+    `).join("");
   } catch (error) {
-    memoryList.textContent = error.message;
+    showMessage(memoryMessage, error.message);
   }
 }
 
+// Profile stats
+function updateProfileStats() {
+  if (!currentUser || !profileStats) return;
+
+  const myPosts = allPosts.filter(
+    post => post.userId === currentUser.uid
+  );
+
+  const likes = myPosts.reduce(
+    (total, post) => total + (Number(post.likes) || 0),
+    0
+  );
+
+  profileStats.textContent =
+    `${myPosts.length} Posts · ${likes} Likes · ${followedUsers.size} Following`;
+}
+
 // Category filters
-document.querySelectorAll(".categories button").forEach((button) => {
+document.querySelectorAll(".categories button[data-filter]").forEach(button => {
   button.addEventListener("click", () => {
-    document.querySelectorAll(".categories button").forEach((item) => {
+    activeFilter = button.dataset.filter || "all";
+
+    document.querySelectorAll(".categories button").forEach(item => {
       item.classList.remove("active");
     });
 
     button.classList.add("active");
-    activeFilter = button.dataset.filter || "all";
-
     renderPosts();
   });
 });
 
-// Bottom navigation
-document.querySelectorAll("nav button").forEach((button) => {
+// Navigation
+function navigateTo(page) {
+  const destinations = {
+    Home: "homeFeed",
+    Discover: "discoverPanel",
+    Create: "createPanel",
+    Memories: "profilePanel",
+    Profile: "profilePanel"
+  };
+
+  const destination = $(destinations[page]);
+
+  if (destination) {
+    destination.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+
+  if (page === "Memories") {
+    memoryList?.scrollIntoView({ behavior: "smooth" });
+  }
+}
+
+document.querySelectorAll(".bottom-nav button[data-page]").forEach(button => {
   button.addEventListener("click", () => {
-    const page = button.dataset.page;
-
-    if (page === "Home") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    if (page === "Discover") {
-      document.getElementById("discoverPanel").scrollIntoView({
-        behavior: "smooth"
-      });
-    }
-
-    if (page === "Create") {
-      document.getElementById("createPanel").scrollIntoView({
-        behavior: "smooth"
-      });
-    }
-
-    if (page === "Memories" || page === "Profile") {
-      document.getElementById("profilePanel").scrollIntoView({
-        behavior: "smooth"
-      });
-    }
+    navigateTo(button.dataset.page);
   });
 });
 
-// Profile shortcut
-document.getElementById("profileButton").addEventListener("click", () => {
-  document.getElementById("profilePanel").scrollIntoView({
-    behavior: "smooth"
+document.querySelectorAll(".categories button[data-page]").forEach(button => {
+  button.addEventListener("click", () => {
+    navigateTo(button.dataset.page);
   });
 });
 
-// Initial feed
-renderPosts();
+profileButton?.addEventListener("click", () => {
+  navigateTo("Profile");
+});
+
+console.log("Rami app initialized successfully 🇵🇰");
