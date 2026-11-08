@@ -26,7 +26,7 @@ import {
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyB8nvVBQ2KJ-6bir7N_gI0zaOy9j7seuhg",
+  apiKey: "AIzaSyB8nvVBQ2KJ-6bir7N_gI0zaOy9j7seuh",
   authDomain: "rami-3aeed.firebaseapp.com",
   projectId: "rami-3aeed",
   storageBucket: "rami-3aeed.firebasestorage.app",
@@ -49,6 +49,8 @@ let activeFilter = "all";
 let stopPostsListener = null;
 let followedUsers = new Set();
 let feedObserver = null;
+let currentPage = "Home";
+let soundEnabled = false;
 
 const $ = id => document.getElementById(id);
 
@@ -70,6 +72,11 @@ const postMedia = $("postMedia");
 const postVideoUrl = $("postVideoUrl");
 
 const feedList = $("feedList");
+const homeFeed = $("homeFeed");
+const createPanel = $("createPanel");
+const discoverPanel = $("discoverPanel");
+const profilePanel = $("profilePanel");
+
 const creatorList = $("creatorList");
 const profileName = $("profileName");
 const profileStats = $("profileStats");
@@ -83,6 +90,7 @@ const publishButton = $("publishButton");
 const saveMemoryButton = $("saveMemoryButton");
 const profileButton = $("profileButton");
 
+// HTML safety
 function escapeHTML(value = "") {
   return String(value).replace(/[&<>"']/g, char => ({
     "&": "&amp;",
@@ -95,6 +103,107 @@ function escapeHTML(value = "") {
 
 function showMessage(element, message) {
   if (element) element.textContent = message;
+}
+
+// Page navigation and visibility
+function navigateTo(page) {
+  const allowedPages = [
+    "Home",
+    "Discover",
+    "Create",
+    "Memories",
+    "Profile"
+  ];
+
+  if (!allowedPages.includes(page)) page = "Home";
+
+  if (!currentUser && page !== "Home") {
+    alert("Please login first.");
+    page = "Home";
+  }
+
+  currentPage = page;
+
+  document.body.classList.remove(
+    "page-home",
+    "page-create",
+    "page-discover",
+    "page-profile"
+  );
+
+  document.body.classList.add(
+    page === "Home" ? "page-home" :
+    page === "Create" ? "page-create" :
+    page === "Discover" ? "page-discover" :
+    "page-profile"
+  );
+
+  if (homeFeed) homeFeed.hidden = page !== "Home";
+  if (createPanel) createPanel.hidden = page !== "Create";
+  if (discoverPanel) discoverPanel.hidden = page !== "Discover";
+  if (profilePanel) profilePanel.hidden =
+    page !== "Memories" && page !== "Profile";
+
+  // Account details are shown on Profile only
+  if (accountPanel) {
+    accountPanel.hidden = page !== "Profile" || !currentUser;
+  }
+
+  // Pause feed videos when leaving Home
+  if (page !== "Home") {
+    pauseAllVideos();
+  } else {
+    setTimeout(() => playVisibleVideo(), 100);
+  }
+
+  // Update bottom navigation
+  document.querySelectorAll(
+    ".bottom-nav button[data-page]"
+  ).forEach(button => {
+    button.classList.toggle(
+      "active",
+      button.dataset.page === page ||
+      (page === "Memories" && button.dataset.page === "Memories")
+    );
+  });
+
+  if (page === "Discover") loadCreators();
+  if (page === "Memories") loadMemories();
+  if (page === "Profile") {
+    loadProfile();
+    updateProfileStats();
+  }
+
+  if (page === "Home" && feedList) {
+    feedList.scrollTop = 0;
+  }
+}
+
+function pauseAllVideos() {
+  document.querySelectorAll(".feed-list video").forEach(video => {
+    video.pause();
+  });
+}
+
+function playVisibleVideo() {
+  if (currentPage !== "Home" || !feedList) return;
+
+  const videos = feedList.querySelectorAll("video");
+
+  videos.forEach(video => {
+    const rect = video.getBoundingClientRect();
+    const visibleHeight = Math.min(rect.bottom, window.innerHeight) -
+      Math.max(rect.top, 0);
+
+    const visibleRatio = rect.height > 0
+      ? visibleHeight / rect.height
+      : 0;
+
+    if (visibleRatio >= 0.65) {
+      video.muted = !soundEnabled;
+      video.play().catch(() => {});
+    }
+  });
 }
 
 // Cloudinary upload
@@ -159,7 +268,9 @@ signupButton?.addEventListener("click", async () => {
     showMessage(authMessage, "Creating your Rami account...");
 
     const result = await createUserWithEmailAndPassword(
-      auth, email, password
+      auth,
+      email,
+      password
     );
 
     await updateProfile(result.user, { displayName: name });
@@ -210,14 +321,14 @@ onAuthStateChanged(auth, async user => {
   currentUser = user;
 
   if (user) {
-    authPanel.hidden = true;
-    accountPanel.hidden = false;
+    if (authPanel) authPanel.hidden = true;
+    if (accountPanel) accountPanel.hidden = true;
 
     const name = user.displayName || "Rami Creator";
 
-    welcomeUser.textContent = `Welcome, ${name}!`;
-    userEmail.textContent = user.email || "";
-    profileName.textContent = name;
+    if (welcomeUser) welcomeUser.textContent = `Welcome, ${name}!`;
+    if (userEmail) userEmail.textContent = user.email || "";
+    if (profileName) profileName.textContent = name;
 
     await loadProfile();
     await loadFollowedUsers();
@@ -226,9 +337,10 @@ onAuthStateChanged(auth, async user => {
     loadCreators();
     loadMemories();
 
+    navigateTo("Home");
   } else {
-    authPanel.hidden = false;
-    accountPanel.hidden = true;
+    if (authPanel) authPanel.hidden = false;
+    if (accountPanel) accountPanel.hidden = true;
 
     if (stopPostsListener) {
       stopPostsListener();
@@ -242,8 +354,8 @@ onAuthStateChanged(auth, async user => {
 
     allPosts = [];
     followedUsers.clear();
-
     renderPosts();
+    navigateTo("Home");
   }
 });
 
@@ -258,8 +370,11 @@ async function loadProfile() {
 
     if (snapshot.exists()) {
       const data = snapshot.data();
-      profileName.textContent =
-        data.name || currentUser.displayName || "Rami Creator";
+
+      if (profileName) {
+        profileName.textContent =
+          data.name || currentUser.displayName || "Rami Creator";
+      }
     }
   } catch (error) {
     console.error("Profile error:", error);
@@ -273,9 +388,9 @@ publishButton?.addEventListener("click", async () => {
     return;
   }
 
-  const title = postTitle.value.trim();
-  const text = postText.value.trim();
-  const category = postCategory.value;
+  const title = postTitle?.value.trim() || "";
+  const text = postText?.value.trim() || "";
+  const category = postCategory?.value || "Knowledge";
   const videoUrl = postVideoUrl?.value.trim() || "";
   const selectedFile = postMedia?.files?.[0];
 
@@ -323,13 +438,12 @@ publishButton?.addEventListener("click", async () => {
       createdAt: serverTimestamp()
     });
 
-    postTitle.value = "";
-    postText.value = "";
+    if (postTitle) postTitle.value = "";
+    if (postText) postText.value = "";
     if (postVideoUrl) postVideoUrl.value = "";
     if (postMedia) postMedia.value = "";
 
     showMessage(postMessage, "Your post is live on Rami! 🇵🇰");
-
     navigateTo("Home");
 
   } catch (error) {
@@ -360,11 +474,18 @@ function listenToPosts() {
 
   }, error => {
     console.error("Posts error:", error);
-    feedList.textContent = "Unable to load posts: " + error.message;
+
+    if (feedList) {
+      feedList.innerHTML = `
+        <div class="feed-message">
+          Unable to load posts: ${escapeHTML(error.message)}
+        </div>
+      `;
+    }
   });
 }
 
-// Render vertical feed
+// Render vertical video feed
 function renderPosts() {
   if (!feedList) return;
 
@@ -381,12 +502,16 @@ function renderPosts() {
   }
 
   if (!posts.length) {
+    const message = activeFilter === "Following"
+      ? "Follow creators to see their videos here."
+      : "Be the first to share your talent on Rami!";
+
     feedList.innerHTML = `
-      <div class="rami-post">
+      <div class="rami-post empty-post">
         <div class="post-no-media">
           <div>
             <h2>Welcome to Rami 🇵🇰</h2>
-            <p>Be the first to share your talent!</p>
+            <p>${escapeHTML(message)}</p>
           </div>
         </div>
       </div>
@@ -424,6 +549,7 @@ function renderPosts() {
           <video
             src="${escapeHTML(mediaUrl)}"
             playsinline
+            webkit-playsinline
             muted
             loop
             preload="metadata">
@@ -474,32 +600,40 @@ function renderPosts() {
 
         <div class="post-actions">
 
+          ${mediaType === "video" ? `
+            <button class="sound-button" type="button"
+              aria-label="Turn sound on or off">
+              ${soundEnabled ? "🔊" : "🔇"}
+              <small>${soundEnabled ? "Sound On" : "Sound Off"}</small>
+            </button>
+          ` : ""}
+
           <button class="follow-button ${isFollowing ? "following" : ""}"
-            data-id="${escapeHTML(post.userId)}">
+            data-id="${escapeHTML(post.userId)}" type="button">
             👤
             <small>${isFollowing ? "Following" : "Follow"}</small>
           </button>
 
           <button class="like-button ${liked ? "liked" : ""}"
-            data-id="${escapeHTML(post.id)}">
+            data-id="${escapeHTML(post.id)}" type="button">
             ${liked ? "❤️" : "🤍"}
             <small>${Number(post.likes) || 0}</small>
           </button>
 
           <button class="comment-button"
-            data-id="${escapeHTML(post.id)}">
+            data-id="${escapeHTML(post.id)}" type="button">
             💬
             <small>${comments.length}</small>
           </button>
 
           <button class="favorite-button ${favorited ? "favorited" : ""}"
-            data-id="${escapeHTML(post.id)}">
+            data-id="${escapeHTML(post.id)}" type="button">
             ${favorited ? "⭐" : "☆"}
             <small>Save</small>
           </button>
 
           <button class="share-button"
-            data-id="${escapeHTML(post.id)}">
+            data-id="${escapeHTML(post.id)}" type="button">
             ↗
             <small>Share</small>
           </button>
@@ -520,7 +654,7 @@ function renderPosts() {
           <input class="comment-input"
             placeholder="Write a comment...">
 
-          <button class="comment-send">Send</button>
+          <button class="comment-send" type="button">Send</button>
 
         </div>
 
@@ -528,27 +662,37 @@ function renderPosts() {
     `;
   }).join("");
 
-  // Video autoplay observer
   setupVideoObserver();
-
 }
 
-// Play visible video, pause other videos
+// Video observer: play visible video and pause the others
 function setupVideoObserver() {
-  if (feedObserver) feedObserver.disconnect();
+  if (feedObserver) {
+    feedObserver.disconnect();
+    feedObserver = null;
+  }
 
-  const videos = feedList.querySelectorAll("video");
-
-  if (!("IntersectionObserver" in window)) {
+  if (!feedList || !("IntersectionObserver" in window)) {
+    playVisibleVideo();
     return;
   }
+
+  const videos = feedList.querySelectorAll("video");
 
   feedObserver = new IntersectionObserver(entries => {
     entries.forEach(entry => {
       const video = entry.target;
 
-      if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
-        video.play().catch(() => {});
+      if (
+        currentPage === "Home" &&
+        entry.isIntersecting &&
+        entry.intersectionRatio >= 0.65
+      ) {
+        video.muted = !soundEnabled;
+
+        video.play().catch(() => {
+          // Browser may require a user tap before playback.
+        });
       } else {
         video.pause();
       }
@@ -561,12 +705,38 @@ function setupVideoObserver() {
   videos.forEach(video => feedObserver.observe(video));
 }
 
-// Feed buttons
-feedList.addEventListener("click", event => {
+// Feed buttons and video controls
+feedList?.addEventListener("click", event => {
   const button = event.target.closest("button");
 
   if (button) {
     const postId = button.dataset.id;
+
+    if (button.classList.contains("sound-button")) {
+      const article = button.closest(".rami-post");
+      const video = article?.querySelector("video");
+
+      if (!video) return;
+
+      soundEnabled = !soundEnabled;
+
+      // Keep other videos muted.
+      feedList.querySelectorAll("video").forEach(item => {
+        item.muted = true;
+      });
+
+      video.muted = !soundEnabled;
+
+      button.innerHTML = soundEnabled
+        ? "🔊<small>Sound On</small>"
+        : "🔇<small>Sound Off</small>";
+
+      if (video.paused) {
+        video.play().catch(() => {});
+      }
+
+      return;
+    }
 
     if (button.classList.contains("like-button")) {
       likePost(postId);
@@ -590,19 +760,22 @@ feedList.addEventListener("click", event => {
 
     if (button.classList.contains("comment-button")) {
       const article = button.closest(".rami-post");
-      article.querySelector(".comment-area").classList.toggle("open");
+      article?.querySelector(".comment-area")?.classList.toggle("open");
       return;
     }
 
     if (button.classList.contains("comment-send")) {
       const article = button.closest(".rami-post");
-      const input = article.querySelector(".comment-input");
-      addComment(article.dataset.id, input.value);
+      const input = article?.querySelector(".comment-input");
+
+      if (article && input) {
+        addComment(article.dataset.id, input.value);
+      }
       return;
     }
   }
 
-  // Tap video to pause/play
+  // Tap video to pause or play
   const video = event.target.closest("video");
 
   if (video) {
@@ -630,7 +803,8 @@ async function likePost(postId) {
       if (!snapshot.exists()) return;
 
       const data = snapshot.data();
-      const likedBy = Array.isArray(data.likedBy) ? data.likedBy : [];
+      const likedBy = Array.isArray(data.likedBy)
+        ? data.likedBy : [];
 
       const alreadyLiked = likedBy.includes(currentUser.uid);
 
@@ -775,13 +949,14 @@ async function followCreator(creatorId) {
 
     renderPosts();
     loadCreators();
+    updateProfileStats();
 
   } catch (error) {
     alert("Follow error: " + error.message);
   }
 }
 
-// Share
+// Share post
 async function sharePost(postId) {
   const link =
     `${location.origin}${location.pathname}#post-${postId}`;
@@ -932,7 +1107,9 @@ document.querySelectorAll(
   button.addEventListener("click", () => {
     activeFilter = button.dataset.filter || "all";
 
-    document.querySelectorAll(".categories button").forEach(item => {
+    document.querySelectorAll(
+      ".categories button[data-filter]"
+    ).forEach(item => {
       item.classList.remove("active");
     });
 
@@ -944,34 +1121,7 @@ document.querySelectorAll(
   });
 });
 
-// Navigation
-function navigateTo(page) {
-  const destinations = {
-    Home: "homeFeed",
-    Discover: "discoverPanel",
-    Create: "createPanel",
-    Memories: "profilePanel",
-    Profile: "profilePanel"
-  };
-
-  const destination = $(destinations[page]);
-
-  if (destination) {
-    destination.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-  }
-
-  if (page === "Home" && feedList) {
-    feedList.scrollTop = 0;
-  }
-
-  if (page === "Memories") {
-    memoryList?.scrollIntoView({ behavior: "smooth" });
-  }
-}
-
+// Bottom navigation
 document.querySelectorAll(
   ".bottom-nav button[data-page]"
 ).forEach(button => {
@@ -980,6 +1130,7 @@ document.querySelectorAll(
   });
 });
 
+// Search / Discover category button
 document.querySelectorAll(
   ".categories button[data-page]"
 ).forEach(button => {
@@ -988,8 +1139,12 @@ document.querySelectorAll(
   });
 });
 
+// Header Profile button
 profileButton?.addEventListener("click", () => {
   navigateTo("Profile");
 });
 
-console.log("Rami vertical video feed initialized 🇵🇰");
+// Start on Home
+navigateTo("Home");
+
+console.log("Rami full-screen feed initialized 🇵🇰");
