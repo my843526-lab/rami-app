@@ -1,7 +1,6 @@
-
 :root {
-  --bg: #101018;
-  --panel: #1b1b27;
+  --bg: #08080d;
+  --panel: #191923;
   --purple: #a56bff;
   --pink: #ff4d9d;
   --white: #ffffff;
@@ -38,8 +37,8 @@ button {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(16,16,24,.96);
-  padding: 14px 18px;
+  background: rgba(10,10,16,.97);
+  padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -88,9 +87,7 @@ button {
   margin-bottom: 12px;
 }
 
-.auth-panel p,
-.welcome p,
-.feed-heading p {
+.auth-panel p {
   color: var(--muted);
   margin: 8px 0;
 }
@@ -130,27 +127,19 @@ button {
   overflow-wrap: anywhere;
 }
 
-.welcome {
-  margin: 15px;
-  padding: 22px;
-  border-radius: 18px;
-  background: linear-gradient(130deg,#5927a6,#c32b83);
-}
+/* Top categories */
 
-.welcome h2 {
-  margin-bottom: 8px;
-}
-
-.welcome p {
-  color: white;
+.welcome,
+.feed-heading {
+  display: none;
 }
 
 .feed-top {
   position: sticky;
-  top: 69px;
+  top: 62px;
   z-index: 90;
-  background: var(--bg);
-  padding: 10px 0;
+  background: #08080d;
+  padding: 9px 0;
 }
 
 .categories {
@@ -159,6 +148,10 @@ button {
   overflow-x: auto;
   padding: 5px 12px;
   scrollbar-width: none;
+}
+
+.categories::-webkit-scrollbar {
+  display: none;
 }
 
 .categories button {
@@ -174,72 +167,218 @@ button {
   background: var(--purple);
 }
 
-.feed-heading {
-  padding: 18px;
-}
-
-.feed-heading h2 {
-  font-size: 21px;
-}
+/* Vertical video feed */
 
 .feed-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 0 12px;
+  gap: 12px;
+  height: calc(100svh - 205px);
+  min-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  padding: 0 9px;
 }
 
-.feed-list > div {
-  background: var(--panel);
-  border: 1px solid #343447;
-  border-radius: 16px;
-  padding: 15px;
+.feed-list::-webkit-scrollbar {
+  display: none;
+}
+
+.rami-post {
+  position: relative;
+  flex: 0 0 100%;
+  height: 100%;
+  min-height: calc(100svh - 205px);
   overflow: hidden;
+  border-radius: 16px;
+  background: #171722;
+  scroll-snap-align: start;
+  isolation: isolate;
 }
 
-.feed-list h3 {
-  margin-bottom: 9px;
+/* Video and image */
+
+.post-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #08080d;
+  z-index: -1;
 }
 
-.feed-list p {
-  color: var(--muted);
+.post-media video,
+.post-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.post-media video {
+  background: #08080d;
+}
+
+/* Text-only post */
+
+.post-no-media {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 35px;
+  background: linear-gradient(145deg,#30145d,#9b2876);
+  text-align: center;
+}
+
+.post-no-media h2 {
+  font-size: 27px;
+  line-height: 1.4;
+}
+
+/* Dark gradient */
+
+.post-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,.12),
+    transparent 35%,
+    rgba(0,0,0,.78) 100%
+  );
+}
+
+/* Creator information */
+
+.post-info {
+  position: absolute;
+  left: 13px;
+  right: 76px;
+  bottom: 18px;
+  z-index: 5;
+  text-shadow: 0 2px 5px #000;
+}
+
+.post-info h3 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.post-info p {
+  font-size: 13px;
   line-height: 1.5;
+  margin-bottom: 7px;
   overflow-wrap: anywhere;
 }
 
-.feed-list video,
-.feed-list img,
-.feed img,
-.feed video {
-  width: 100%;
-  max-height: 500px;
-  object-fit: contain;
-  border-radius: 12px;
-  background: #08080d;
-  margin: 10px 0;
+.post-category {
+  display: inline-block;
+  font-size: 11px;
+  background: rgba(165,107,255,.8);
+  padding: 5px 9px;
+  border-radius: 15px;
+  margin-top: 5px;
 }
 
-.feed-list button {
-  background: #303044;
+/* Right-side actions */
+
+.post-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 95px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 17px;
+}
+
+.post-actions button {
+  background: transparent;
   color: white;
-  padding: 9px 12px;
-  border-radius: 18px;
-  margin: 8px 5px 0 0;
+  min-width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 23px;
+  text-shadow: 0 2px 5px black;
 }
 
-.feed-list button:hover {
-  background: var(--purple);
+.post-actions button small {
+  font-size: 10px;
+  font-weight: bold;
 }
 
-.feed-list input {
+.post-actions button:active {
+  transform: scale(.88);
+}
+
+.post-actions .liked {
+  color: #ff4d72;
+}
+
+.post-actions .favorited {
+  color: #ffd45e;
+}
+
+.post-actions .following {
+  color: #8effbd;
+}
+
+/* Comments */
+
+.comment-area {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 20;
+  display: none;
+  background: rgba(20,20,30,.97);
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.comment-area.open {
+  display: block;
+}
+
+.comment-input {
   width: 100%;
   padding: 11px;
-  margin-top: 10px;
   border-radius: 10px;
+  border: 1px solid #555;
   background: #101018;
-  border: 1px solid #414154;
   color: white;
 }
+
+.comments-list {
+  max-height: 100px;
+  overflow-y: auto;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.comments-list p {
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+
+.comment-send {
+  background: var(--purple);
+  color: white;
+  padding: 8px 13px;
+  border-radius: 15px;
+  margin-top: 7px;
+}
+
+/* Create, discover, memories */
 
 .create-panel label {
   display: block;
@@ -267,9 +406,7 @@ button {
   border-radius: 12px;
 }
 
-.profile-panel h3 {
-  margin: 15px 0 8px;
-}
+/* Bottom navigation */
 
 .bottom-nav {
   position: fixed;
@@ -281,7 +418,7 @@ button {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background: rgba(24,24,36,.98);
+  background: rgba(18,18,28,.98);
   border-top: 1px solid #39394a;
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -319,12 +456,12 @@ button {
 
 @media (min-width: 700px) {
   main {
-    max-width: 650px;
+    max-width: 500px;
     margin: auto;
   }
 
   .rami-header {
-    padding-left: max(18px, calc((100% - 650px)/2));
-    padding-right: max(18px, calc((100% - 650px)/2));
+    padding-left: max(18px, calc((100% - 500px)/2));
+    padding-right: max(18px, calc((100% - 500px)/2));
   }
 }
