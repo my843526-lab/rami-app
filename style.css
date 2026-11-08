@@ -15,23 +15,35 @@
 
 html {
   scroll-behavior: smooth;
+  background: var(--bg);
 }
 
 body {
   background: var(--bg);
   color: var(--white);
   font-family: Arial, sans-serif;
-  padding-bottom: 85px;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-button, input, textarea, select {
+button,
+input,
+textarea,
+select {
   font: inherit;
 }
 
 button {
   border: none;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+
+[hidden] {
+  display: none !important;
+}
+
+/* Header */
 
 .rami-header {
   position: sticky;
@@ -67,6 +79,8 @@ button {
   border-radius: 22px;
   font-weight: bold;
 }
+
+/* Authentication */
 
 .auth-panel,
 .account-panel,
@@ -127,27 +141,77 @@ button {
   overflow-wrap: anywhere;
 }
 
-/* Top categories */
+/* HOME: full-screen TikTok-style layout */
 
-.welcome,
-.feed-heading {
+body.page-home {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Hide the normal header while watching videos */
+
+body.page-home .rami-header {
   display: none;
 }
 
-.feed-top {
-  position: sticky;
-  top: 62px;
-  z-index: 90;
+/* Home feed covers the screen */
+
+#homeFeed {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: #08080d;
-  padding: 9px 0;
+  overflow: hidden;
+  z-index: 1;
+}
+
+#homeFeed[hidden] {
+  display: none !important;
+}
+
+/* Hide old welcome and feed heading */
+
+.welcome,
+.feed-heading {
+  display: none !important;
+}
+
+/* Top categories overlay */
+
+.feed-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,.55),
+    rgba(0,0,0,0)
+  );
+  padding-top: max(28px, env(safe-area-inset-top));
+  padding-bottom: 15px;
+  pointer-events: none;
 }
 
 .categories {
   display: flex;
-  gap: 9px;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
   overflow-x: auto;
-  padding: 5px 12px;
+  padding: 8px 12px;
   scrollbar-width: none;
+  pointer-events: auto;
 }
 
 .categories::-webkit-scrollbar {
@@ -156,69 +220,97 @@ button {
 
 .categories button {
   flex-shrink: 0;
-  background: #292938;
-  color: white;
-  border-radius: 20px;
-  padding: 10px 15px;
+  background: transparent;
+  color: rgba(255,255,255,.78);
+  border-radius: 0;
+  padding: 8px 2px;
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 0 1px 5px #000;
+  border-bottom: 2px solid transparent;
 }
 
 .categories button.active,
 .categories button:focus {
-  background: var(--purple);
+  color: white;
+  border-bottom: 2px solid white;
+  background: transparent;
 }
 
-/* Vertical video feed */
+/* Full-screen vertical scrolling feed */
 
 .feed-list {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  height: calc(100svh - 205px);
-  min-height: 400px;
+  gap: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
   scrollbar-width: none;
-  padding: 0 9px;
+  padding: 0;
+  margin: 0;
+  background: #08080d;
+  -webkit-overflow-scrolling: touch;
 }
 
 .feed-list::-webkit-scrollbar {
   display: none;
 }
 
+/* Every post fills one complete screen */
+
 .rami-post {
   position: relative;
   flex: 0 0 100%;
-  height: 100%;
-  min-height: calc(100svh - 205px);
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
-  border-radius: 16px;
-  background: #171722;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+  background: #08080d;
   scroll-snap-align: start;
+  scroll-snap-stop: always;
   isolation: isolate;
 }
 
-/* Video and image */
+/* Video and image fill the entire post */
 
 .post-media {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 0;
   background: #08080d;
-  z-index: -1;
 }
 
 .post-media video,
 .post-media img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  background: #08080d;
 }
 
 .post-media video {
-  background: #08080d;
+  pointer-events: auto;
 }
 
 /* Text-only post */
@@ -226,6 +318,7 @@ button {
 .post-no-media {
   position: absolute;
   inset: 0;
+  z-index: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -237,41 +330,53 @@ button {
 .post-no-media h2 {
   font-size: 27px;
   line-height: 1.4;
+  margin-bottom: 12px;
 }
 
-/* Dark gradient */
+.post-no-media p {
+  color: rgba(255,255,255,.9);
+  line-height: 1.5;
+}
+
+/* Dark gradient over video */
 
 .post-shade {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    rgba(0,0,0,.12),
-    transparent 35%,
-    rgba(0,0,0,.78) 100%
+    rgba(0,0,0,.38) 0%,
+    transparent 25%,
+    transparent 48%,
+    rgba(0,0,0,.2) 65%,
+    rgba(0,0,0,.82) 100%
   );
 }
 
-/* Creator information */
+/* Creator information at bottom left */
 
 .post-info {
   position: absolute;
-  left: 13px;
-  right: 76px;
-  bottom: 18px;
+  left: 15px;
+  right: 82px;
+  bottom: calc(88px + env(safe-area-inset-bottom));
   z-index: 5;
+  color: white;
   text-shadow: 0 2px 5px #000;
+  pointer-events: none;
 }
 
 .post-info h3 {
-  font-size: 17px;
-  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 9px;
 }
 
 .post-info p {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.45;
   margin-bottom: 7px;
   overflow-wrap: anywhere;
 }
@@ -279,40 +384,45 @@ button {
 .post-category {
   display: inline-block;
   font-size: 11px;
-  background: rgba(165,107,255,.8);
-  padding: 5px 9px;
+  font-weight: bold;
+  background: rgba(165,107,255,.85);
+  padding: 5px 10px;
   border-radius: 15px;
   margin-top: 5px;
 }
 
-/* Right-side actions */
+/* Right-side action buttons */
 
 .post-actions {
   position: absolute;
-  right: 8px;
-  bottom: 95px;
+  right: 9px;
+  bottom: calc(105px + env(safe-area-inset-bottom));
   z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 17px;
+  gap: 19px;
 }
 
 .post-actions button {
   background: transparent;
   color: white;
-  min-width: 52px;
+  min-width: 48px;
+  min-height: 42px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 3px;
-  font-size: 23px;
+  font-size: 25px;
   text-shadow: 0 2px 5px black;
+  padding: 2px;
 }
 
 .post-actions button small {
   font-size: 10px;
   font-weight: bold;
+  white-space: nowrap;
 }
 
 .post-actions button:active {
@@ -331,18 +441,24 @@ button {
   color: #8effbd;
 }
 
-/* Comments */
+.post-actions .sound-button {
+  font-size: 23px;
+}
+
+/* Comments panel */
 
 .comment-area {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  z-index: 20;
+  left: 10px;
+  right: 10px;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 30;
   display: none;
   background: rgba(20,20,30,.97);
-  padding: 10px;
-  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid #454557;
+  border-radius: 14px;
+  box-shadow: 0 5px 25px rgba(0,0,0,.5);
 }
 
 .comment-area.open {
@@ -356,29 +472,138 @@ button {
   border: 1px solid #555;
   background: #101018;
   color: white;
+  margin-top: 8px;
 }
 
 .comments-list {
-  max-height: 100px;
+  max-height: 120px;
   overflow-y: auto;
-  margin-top: 8px;
   font-size: 12px;
 }
 
 .comments-list p {
-  margin: 5px 0;
+  margin: 6px 0;
   overflow-wrap: anywhere;
 }
 
 .comment-send {
   background: var(--purple);
   color: white;
-  padding: 8px 13px;
+  padding: 9px 15px;
   border-radius: 15px;
-  margin-top: 7px;
+  margin-top: 8px;
 }
 
-/* Create, discover, memories */
+/* Empty feed message */
+
+.feed-message {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+  color: white;
+}
+
+/* Bottom navigation over the video */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: calc(65px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: rgba(8,8,13,.92);
+  border-top: 1px solid rgba(255,255,255,.12);
+  padding: 3px 0 env(safe-area-inset-bottom);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.bottom-nav button {
+  flex: 1;
+  height: 58px;
+  background: transparent;
+  color: rgba(255,255,255,.65);
+  font-size: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.bottom-nav button span {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.bottom-nav button[data-page="Create"] {
+  color: white;
+  font-size: 29px;
+}
+
+.bottom-nav button.active {
+  color: white;
+}
+
+.bottom-nav button:active {
+  transform: scale(.9);
+}
+
+/* Login panel while user is signed out */
+
+body.page-home #authPanel:not([hidden]) {
+  position: fixed;
+  z-index: 300;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 30px);
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+  margin: 0;
+  box-shadow: 0 15px 50px rgba(0,0,0,.8);
+}
+
+/* Other pages */
+
+body:not(.page-home) {
+  padding-bottom: 80px;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+body:not(.page-home) .rami-header {
+  position: sticky;
+  top: 0;
+}
+
+body:not(.page-home) .feed-top {
+  display: none;
+}
+
+body:not(.page-home) .bottom-nav {
+  background: rgba(18,18,28,.98);
+  border-top: 1px solid #39394a;
+}
+
+body:not(.page-home) .create-panel,
+body:not(.page-home) .discover-panel,
+body:not(.page-home) .profile-panel {
+  margin: 15px;
+  padding: 18px;
+  border-radius: 18px;
+}
+
+/* Create, Discover and Profile content */
 
 .create-panel label {
   display: block;
@@ -389,6 +614,11 @@ button {
 #publishButton,
 #saveMemoryButton {
   margin-top: 12px;
+}
+
+#publishButton:disabled {
+  opacity: .6;
+  cursor: wait;
 }
 
 #creatorList,
@@ -404,64 +634,61 @@ button {
   background: #252535;
   padding: 13px;
   border-radius: 12px;
+  overflow-wrap: anywhere;
 }
 
-/* Bottom navigation */
-
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 200;
-  height: 70px;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  background: rgba(18,18,28,.98);
-  border-top: 1px solid #39394a;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.bottom-nav button {
-  flex: 1;
-  height: 60px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 23px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-}
-
-.bottom-nav button span {
-  font-size: 10px;
-}
-
-.bottom-nav button[data-page="Create"] {
+.creator-follow {
+  background: var(--purple);
   color: white;
-  font-size: 29px;
+  padding: 8px 13px;
+  border-radius: 18px;
+  margin-top: 8px;
 }
 
-.bottom-nav button:focus,
-.bottom-nav button:hover {
-  color: var(--pink);
-}
-
-[hidden] {
-  display: none !important;
-}
+/* Tablet and desktop */
 
 @media (min-width: 700px) {
+  body.page-home #homeFeed {
+    background: #000;
+  }
+
+  body.page-home .feed-list {
+    width: 500px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 1px solid #242430;
+    border-right: 1px solid #242430;
+  }
+
+  body.page-home .feed-top {
+    left: 50%;
+    right: auto;
+    width: 500px;
+    transform: translateX(-50%);
+  }
+
+  body.page-home .bottom-nav {
+    left: 50%;
+    right: auto;
+    width: 500px;
+    transform: translateX(-50%);
+  }
+
+  body.page-home .post-info {
+    left: 18px;
+  }
+
+  body.page-home .post-actions {
+    right: 12px;
+  }
+
   main {
-    max-width: 500px;
+    max-width: 600px;
     margin: auto;
   }
 
   .rami-header {
-    padding-left: max(18px, calc((100% - 500px)/2));
-    padding-right: max(18px, calc((100% - 500px)/2));
+    padding-left: max(18px, calc((100% - 600px)/2));
+    padding-right: max(18px, calc((100% - 600px)/2));
   }
 }
