@@ -1,3 +1,4 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
 import {
@@ -17,6 +18,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  deleteDoc,
   onSnapshot,
   query,
   orderBy,
@@ -24,7 +26,10 @@ import {
   runTransaction
 } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
-// Firebase configuration
+// ========================================
+// RAMI FIREBASE CONFIGURATION
+// ========================================
+
 const firebaseConfig = {
   apiKey: "AIzaSyBYRZP6di81hcnDHezrtxEnpo2HpW7SpVg",
   authDomain: "rami-3aeed.firebaseapp.com",
@@ -35,7 +40,6 @@ const firebaseConfig = {
   measurementId: "G-TZFRLKCQB5"
 };
 
-// Cloudinary configuration
 const CLOUDINARY_CLOUD_NAME = "dge5sq0w";
 const CLOUDINARY_UPLOAD_PRESET = "rami_mobile";
 
@@ -43,19 +47,30 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// ========================================
+// RAMI APP STATE
+// ========================================
+
 let currentUser = null;
 let allPosts = [];
-let activeFilter = "all";
-let stopPostsListener = null;
 let followedUsers = new Set();
-let feedObserver = null;
+let activeFilter = "all";
 let currentPage = "Home";
 let soundEnabled = false;
 
+let stopPostsListener = null;
+let feedObserver = null;
+let authReady = false;
+
 const $ = id => document.getElementById(id);
+
+// ========================================
+// HTML ELEMENTS
+// ========================================
 
 const authPanel = $("authPanel");
 const accountPanel = $("accountPanel");
+
 const authName = $("authName");
 const authEmail = $("authEmail");
 const authPassword = $("authPassword");
@@ -80,6 +95,7 @@ const profilePanel = $("profilePanel");
 const creatorList = $("creatorList");
 const profileName = $("profileName");
 const profileStats = $("profileStats");
+
 const memoryList = $("memoryList");
 const memoryMessage = $("memoryMessage");
 
@@ -90,7 +106,10 @@ const publishButton = $("publishButton");
 const saveMemoryButton = $("saveMemoryButton");
 const profileButton = $("profileButton");
 
-// HTML safety
+// ========================================
+// SAFE HTML
+// ========================================
+
 function escapeHTML(value = "") {
   return String(value).replace(/[&<>"']/g, char => ({
     "&": "&amp;",
@@ -105,9 +124,12 @@ function showMessage(element, message) {
   if (element) element.textContent = message;
 }
 
-// Page navigation and visibility
+// ========================================
+// PAGE NAVIGATION
+// ========================================
+
 function navigateTo(page) {
-  const allowedPages = [
+  const allowed = [
     "Home",
     "Discover",
     "Create",
@@ -115,7 +137,7 @@ function navigateTo(page) {
     "Profile"
   ];
 
-  if (!allowedPages.includes(page)) page = "Home";
+  if (!allowed.includes(page)) page = "Home";
 
   if (!currentUser && page !== "Home") {
     alert("Please login first.");
@@ -141,34 +163,34 @@ function navigateTo(page) {
   if (homeFeed) homeFeed.hidden = page !== "Home";
   if (createPanel) createPanel.hidden = page !== "Create";
   if (discoverPanel) discoverPanel.hidden = page !== "Discover";
-  if (profilePanel) profilePanel.hidden =
-    page !== "Memories" && page !== "Profile";
 
-  // Account details are shown on Profile only
+  if (profilePanel) {
+    profilePanel.hidden =
+      page !== "Profile" && page !== "Memories";
+  }
+
   if (accountPanel) {
     accountPanel.hidden = page !== "Profile" || !currentUser;
   }
 
-  // Pause feed videos when leaving Home
   if (page !== "Home") {
     pauseAllVideos();
   } else {
-    setTimeout(() => playVisibleVideo(), 100);
+    setTimeout(playVisibleVideo, 100);
   }
 
-  // Update bottom navigation
   document.querySelectorAll(
     ".bottom-nav button[data-page]"
   ).forEach(button => {
     button.classList.toggle(
       "active",
-      button.dataset.page === page ||
-      (page === "Memories" && button.dataset.page === "Memories")
+      button.dataset.page === page
     );
   });
 
   if (page === "Discover") loadCreators();
   if (page === "Memories") loadMemories();
+
   if (page === "Profile") {
     loadProfile();
     updateProfileStats();
@@ -179,6 +201,10 @@ function navigateTo(page) {
   }
 }
 
+// ========================================
+// VIDEO PLAYBACK
+// ========================================
+
 function pauseAllVideos() {
   document.querySelectorAll(".feed-list video").forEach(video => {
     video.pause();
@@ -188,25 +214,66 @@ function pauseAllVideos() {
 function playVisibleVideo() {
   if (currentPage !== "Home" || !feedList) return;
 
-  const videos = feedList.querySelectorAll("video");
-
-  videos.forEach(video => {
+  feedList.querySelectorAll("video").forEach(video => {
     const rect = video.getBoundingClientRect();
-    const visibleHeight = Math.min(rect.bottom, window.innerHeight) -
+
+    const visibleHeight =
+      Math.min(rect.bottom, window.innerHeight) -
       Math.max(rect.top, 0);
 
-    const visibleRatio = rect.height > 0
+    const ratio = rect.height > 0
       ? visibleHeight / rect.height
       : 0;
 
-    if (visibleRatio >= 0.65) {
+    if (ratio >= 0.65) {
       video.muted = !soundEnabled;
       video.play().catch(() => {});
     }
   });
 }
 
-// Cloudinary upload
+function setupVideoObserver() {
+  if (feedObserver) {
+    feedObserver.disconnect();
+    feedObserver = null;
+  }
+
+  if (!feedList) return;
+
+  if (!("IntersectionObserver" in window)) {
+    playVisibleVideo();
+    return;
+  }
+
+  feedObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const video = entry.target;
+
+      if (
+        currentPage === "Home" &&
+        entry.isIntersecting &&
+        entry.intersectionRatio >= 0.65
+      ) {
+        video.muted = !soundEnabled;
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  }, {
+    root: feedList,
+    threshold: [0, 0.65, 1]
+  });
+
+  feedList.querySelectorAll("video").forEach(video => {
+    feedObserver.observe(video);
+  });
+}
+
+// ========================================
+// CLOUDINARY VIDEO AND PHOTO UPLOAD
+// ========================================
+
 async function uploadToCloudinary(file) {
   if (!file) return null;
 
@@ -214,7 +281,7 @@ async function uploadToCloudinary(file) {
   const isVideo = file.type.startsWith("video/");
 
   if (!isImage && !isVideo) {
-    throw new Error("Please select a photo or video.");
+    throw new Error("Select a photo or video.");
   }
 
   const maxSize = isImage
@@ -230,6 +297,7 @@ async function uploadToCloudinary(file) {
   }
 
   const formData = new FormData();
+
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
@@ -244,7 +312,9 @@ async function uploadToCloudinary(file) {
   const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(result.error?.message || "Media upload failed.");
+    throw new Error(
+      result.error?.message || "Upload failed."
+    );
   }
 
   return {
@@ -253,18 +323,34 @@ async function uploadToCloudinary(file) {
   };
 }
 
-// Signup
+// ========================================
+// SIGN UP
+// ========================================
+
 signupButton?.addEventListener("click", async () => {
-  const name = authName.value.trim();
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
+  const name = authName?.value.trim() || "";
+  const email = authEmail?.value.trim() || "";
+  const password = authPassword?.value || "";
 
   if (!name || !email || !password) {
-    showMessage(authMessage, "Please enter your name, email and password.");
+    showMessage(
+      authMessage,
+      "Enter your name, email and password."
+    );
+    return;
+  }
+
+  if (password.length < 6) {
+    showMessage(
+      authMessage,
+      "Password must contain at least 6 characters."
+    );
     return;
   }
 
   try {
+    signupButton.disabled = true;
+
     showMessage(authMessage, "Creating your Rami account...");
 
     const result = await createUserWithEmailAndPassword(
@@ -273,41 +359,72 @@ signupButton?.addEventListener("click", async () => {
       password
     );
 
-    await updateProfile(result.user, { displayName: name });
-
-    await setDoc(doc(db, "users", result.user.uid), {
-      name,
-      email,
-      username: name,
-      createdAt: serverTimestamp()
+    await updateProfile(result.user, {
+      displayName: name
     });
 
-    showMessage(authMessage, "Account created successfully!");
+    await setDoc(
+      doc(db, "users", result.user.uid),
+      {
+        name,
+        username: name,
+        email,
+        bio: "Welcome to my Rami profile!",
+        photoURL: "",
+        createdAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    showMessage(
+      authMessage,
+      "Welcome to Rami! Your account is ready."
+    );
+
   } catch (error) {
     showMessage(authMessage, error.message);
+  } finally {
+    signupButton.disabled = false;
   }
 });
 
-// Login
+// ========================================
+// LOGIN
+// ========================================
+
 loginButton?.addEventListener("click", async () => {
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
+  const email = authEmail?.value.trim() || "";
+  const password = authPassword?.value || "";
 
   if (!email || !password) {
-    showMessage(authMessage, "Enter your email and password.");
+    showMessage(authMessage, "Enter email and password.");
     return;
   }
 
   try {
+    loginButton.disabled = true;
+
     showMessage(authMessage, "Logging in...");
-    await signInWithEmailAndPassword(auth, email, password);
+
+    await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+
     showMessage(authMessage, "Login successful!");
+
   } catch (error) {
     showMessage(authMessage, error.message);
+  } finally {
+    loginButton.disabled = false;
   }
 });
 
-// Logout
+// ========================================
+// LOGOUT
+// ========================================
+
 logoutButton?.addEventListener("click", async () => {
   try {
     await signOut(auth);
@@ -316,7 +433,10 @@ logoutButton?.addEventListener("click", async () => {
   }
 });
 
-// Authentication
+// ========================================
+// AUTHENTICATION STATE
+// ========================================
+
 onAuthStateChanged(auth, async user => {
   currentUser = user;
 
@@ -326,19 +446,39 @@ onAuthStateChanged(auth, async user => {
 
     const name = user.displayName || "Rami Creator";
 
-    if (welcomeUser) welcomeUser.textContent = `Welcome, ${name}!`;
-    if (userEmail) userEmail.textContent = user.email || "";
-    if (profileName) profileName.textContent = name;
+    if (welcomeUser) {
+      welcomeUser.textContent = `Welcome, ${name}!`;
+    }
 
-    await loadProfile();
-    await loadFollowedUsers();
+    if (userEmail) {
+      userEmail.textContent = user.email || "";
+    }
 
-    listenToPosts();
-    loadCreators();
-    loadMemories();
+    if (profileName) {
+      profileName.textContent = name;
+    }
 
-    navigateTo("Home");
+    try {
+      await loadProfile();
+      await loadFollowedUsers();
+
+      listenToPosts();
+      await loadCreators();
+      await updateProfileStats();
+
+      loadMemories();
+
+      navigateTo("Home");
+      authReady = true;
+
+    } catch (error) {
+      console.error("Account loading error:", error);
+      alert("Rami loading error: " + error.message);
+    }
+
   } else {
+    authReady = false;
+
     if (authPanel) authPanel.hidden = false;
     if (accountPanel) accountPanel.hidden = true;
 
@@ -354,12 +494,17 @@ onAuthStateChanged(auth, async user => {
 
     allPosts = [];
     followedUsers.clear();
-    renderPosts();
+
+    if (feedList) feedList.innerHTML = "";
+
     navigateTo("Home");
   }
 });
 
-// Profile
+// ========================================
+// USER PROFILE
+// ========================================
+
 async function loadProfile() {
   if (!currentUser) return;
 
@@ -373,7 +518,22 @@ async function loadProfile() {
 
       if (profileName) {
         profileName.textContent =
-          data.name || currentUser.displayName || "Rami Creator";
+          data.name ||
+          data.username ||
+          currentUser.displayName ||
+          "Rami Creator";
+      }
+
+      const bioElement = $("profileBio");
+
+      if (bioElement) {
+        bioElement.textContent = data.bio || "";
+      }
+
+      const avatar = $("profileAvatar");
+
+      if (avatar && data.photoURL) {
+        avatar.src = data.photoURL;
       }
     }
   } catch (error) {
@@ -381,7 +541,10 @@ async function loadProfile() {
   }
 }
 
-// Publish post
+// ========================================
+// PUBLISH POST
+// ========================================
+
 publishButton?.addEventListener("click", async () => {
   if (!currentUser) {
     showMessage(postMessage, "Please login first.");
@@ -400,7 +563,7 @@ publishButton?.addEventListener("click", async () => {
   }
 
   if (videoUrl && !/^https?:\/\//i.test(videoUrl)) {
-    showMessage(postMessage, "Please enter a valid video URL.");
+    showMessage(postMessage, "Enter a valid video URL.");
     return;
   }
 
@@ -411,12 +574,12 @@ publishButton?.addEventListener("click", async () => {
     let mediaType = videoUrl ? "video" : "";
 
     if (selectedFile) {
-      showMessage(postMessage, "Uploading your photo/video...");
+      showMessage(postMessage, "Uploading your media...");
 
-      const uploadedMedia = await uploadToCloudinary(selectedFile);
+      const uploaded = await uploadToCloudinary(selectedFile);
 
-      mediaUrl = uploadedMedia.url;
-      mediaType = uploadedMedia.type;
+      mediaUrl = uploaded.url;
+      mediaType = uploaded.type;
     }
 
     showMessage(postMessage, "Publishing your post...");
@@ -435,6 +598,7 @@ publishButton?.addEventListener("click", async () => {
       likedBy: [],
       favoriteBy: [],
       comments: [],
+      views: 0,
       createdAt: serverTimestamp()
     });
 
@@ -444,6 +608,7 @@ publishButton?.addEventListener("click", async () => {
     if (postMedia) postMedia.value = "";
 
     showMessage(postMessage, "Your post is live on Rami! 🇵🇰");
+
     navigateTo("Home");
 
   } catch (error) {
@@ -454,7 +619,10 @@ publishButton?.addEventListener("click", async () => {
   }
 });
 
-// Listen to posts
+// ========================================
+// REAL-TIME POSTS
+// ========================================
+
 function listenToPosts() {
   if (stopPostsListener) stopPostsListener();
 
@@ -463,29 +631,36 @@ function listenToPosts() {
     orderBy("createdAt", "desc")
   );
 
-  stopPostsListener = onSnapshot(postsQuery, snapshot => {
-    allPosts = snapshot.docs.map(item => ({
-      id: item.id,
-      ...item.data()
-    }));
+  stopPostsListener = onSnapshot(
+    postsQuery,
+    snapshot => {
+      allPosts = snapshot.docs.map(item => ({
+        id: item.id,
+        ...item.data()
+      }));
 
-    renderPosts();
-    updateProfileStats();
+      renderPosts();
+      updateProfileStats();
+    },
+    error => {
+      console.error("Posts error:", error);
 
-  }, error => {
-    console.error("Posts error:", error);
-
-    if (feedList) {
-      feedList.innerHTML = `
-        <div class="feed-message">
-          Unable to load posts: ${escapeHTML(error.message)}
-        </div>
-      `;
+      if (feedList) {
+        feedList.innerHTML = `
+          <div class="feed-message">
+            Unable to load posts:
+            ${escapeHTML(error.message)}
+          </div>
+        `;
+      }
     }
-  });
+  );
 }
 
-// Render vertical video feed
+// ========================================
+// RENDER VIDEO FEED
+// ========================================
+
 function renderPosts() {
   if (!feedList) return;
 
@@ -502,16 +677,14 @@ function renderPosts() {
   }
 
   if (!posts.length) {
-    const message = activeFilter === "Following"
-      ? "Follow creators to see their videos here."
-      : "Be the first to share your talent on Rami!";
-
     feedList.innerHTML = `
       <div class="rami-post empty-post">
         <div class="post-no-media">
           <div>
             <h2>Welcome to Rami 🇵🇰</h2>
-            <p>${escapeHTML(message)}</p>
+            <p>
+              Be the first to share your talent on Rami!
+            </p>
           </div>
         </div>
       </div>
@@ -537,7 +710,11 @@ function renderPosts() {
 
     const isFollowing = followedUsers.has(post.userId);
 
+    const isOwnPost = currentUser &&
+      currentUser.uid === post.userId;
+
     const mediaUrl = post.mediaUrl || post.videoUrl || "";
+
     const mediaType = post.mediaType ||
       (post.videoUrl ? "video" : "");
 
@@ -578,7 +755,8 @@ function renderPosts() {
     const description = post.text || post.description || "";
 
     return `
-      <article class="rami-post" data-id="${escapeHTML(post.id)}">
+      <article class="rami-post"
+        data-id="${escapeHTML(post.id)}">
 
         ${mediaHTML}
 
@@ -587,7 +765,9 @@ function renderPosts() {
         <div class="post-info">
           <h3>@${escapeHTML(post.userName || "Rami Creator")}</h3>
 
-          <p>${escapeHTML(post.title || description || "Welcome to Rami")}</p>
+          <p>${escapeHTML(
+            post.title || description || "Welcome to Rami"
+          )}</p>
 
           ${post.title && description ? `
             <p>${escapeHTML(description)}</p>
@@ -601,39 +781,43 @@ function renderPosts() {
         <div class="post-actions">
 
           ${mediaType === "video" ? `
-            <button class="sound-button" type="button"
-              aria-label="Turn sound on or off">
+            <button class="sound-button" type="button">
               ${soundEnabled ? "🔊" : "🔇"}
               <small>${soundEnabled ? "Sound On" : "Sound Off"}</small>
             </button>
           ` : ""}
 
-          <button class="follow-button ${isFollowing ? "following" : ""}"
-            data-id="${escapeHTML(post.userId)}" type="button">
-            👤
-            <small>${isFollowing ? "Following" : "Follow"}</small>
-          </button>
+          ${!isOwnPost ? `
+            <button class="follow-button
+              ${isFollowing ? "following" : ""}"
+              data-id="${escapeHTML(post.userId)}"
+              type="button">
+              👤
+              <small>${isFollowing ? "Following" : "Follow"}</small>
+            </button>
+          ` : ""}
 
           <button class="like-button ${liked ? "liked" : ""}"
-            data-id="${escapeHTML(post.id)}" type="button">
+            data-id="${escapeHTML(post.id)}">
             ${liked ? "❤️" : "🤍"}
             <small>${Number(post.likes) || 0}</small>
           </button>
 
           <button class="comment-button"
-            data-id="${escapeHTML(post.id)}" type="button">
+            data-id="${escapeHTML(post.id)}">
             💬
             <small>${comments.length}</small>
           </button>
 
-          <button class="favorite-button ${favorited ? "favorited" : ""}"
-            data-id="${escapeHTML(post.id)}" type="button">
+          <button class="favorite-button
+            ${favorited ? "favorited" : ""}"
+            data-id="${escapeHTML(post.id)}">
             ${favorited ? "⭐" : "☆"}
             <small>Save</small>
           </button>
 
           <button class="share-button"
-            data-id="${escapeHTML(post.id)}" type="button">
+            data-id="${escapeHTML(post.id)}">
             ↗
             <small>Share</small>
           </button>
@@ -641,11 +825,12 @@ function renderPosts() {
         </div>
 
         <div class="comment-area">
-
           <div class="comments-list">
             ${comments.map(comment => `
               <p>
-                <strong>${escapeHTML(comment.userName || "User")}:</strong>
+                <strong>
+                  ${escapeHTML(comment.userName || "User")}:
+                </strong>
                 ${escapeHTML(comment.text || "")}
               </p>
             `).join("")}
@@ -654,8 +839,9 @@ function renderPosts() {
           <input class="comment-input"
             placeholder="Write a comment...">
 
-          <button class="comment-send" type="button">Send</button>
-
+          <button class="comment-send" type="button">
+            Send
+          </button>
         </div>
 
       </article>
@@ -665,47 +851,10 @@ function renderPosts() {
   setupVideoObserver();
 }
 
-// Video observer: play visible video and pause the others
-function setupVideoObserver() {
-  if (feedObserver) {
-    feedObserver.disconnect();
-    feedObserver = null;
-  }
+// ========================================
+// FEED BUTTON EVENTS
+// ========================================
 
-  if (!feedList || !("IntersectionObserver" in window)) {
-    playVisibleVideo();
-    return;
-  }
-
-  const videos = feedList.querySelectorAll("video");
-
-  feedObserver = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      const video = entry.target;
-
-      if (
-        currentPage === "Home" &&
-        entry.isIntersecting &&
-        entry.intersectionRatio >= 0.65
-      ) {
-        video.muted = !soundEnabled;
-
-        video.play().catch(() => {
-          // Browser may require a user tap before playback.
-        });
-      } else {
-        video.pause();
-      }
-    });
-  }, {
-    root: feedList,
-    threshold: [0, 0.65, 1]
-  });
-
-  videos.forEach(video => feedObserver.observe(video));
-}
-
-// Feed buttons and video controls
 feedList?.addEventListener("click", event => {
   const button = event.target.closest("button");
 
@@ -720,7 +869,6 @@ feedList?.addEventListener("click", event => {
 
       soundEnabled = !soundEnabled;
 
-      // Keep other videos muted.
       feedList.querySelectorAll("video").forEach(item => {
         item.muted = true;
       });
@@ -744,7 +892,7 @@ feedList?.addEventListener("click", event => {
     }
 
     if (button.classList.contains("follow-button")) {
-      followCreator(postId);
+      toggleFollow(postId);
       return;
     }
 
@@ -760,7 +908,11 @@ feedList?.addEventListener("click", event => {
 
     if (button.classList.contains("comment-button")) {
       const article = button.closest(".rami-post");
-      article?.querySelector(".comment-area")?.classList.toggle("open");
+
+      article?.querySelector(
+        ".comment-area"
+      )?.classList.toggle("open");
+
       return;
     }
 
@@ -771,11 +923,11 @@ feedList?.addEventListener("click", event => {
       if (article && input) {
         addComment(article.dataset.id, input.value);
       }
+
       return;
     }
   }
 
-  // Tap video to pause or play
   const video = event.target.closest("video");
 
   if (video) {
@@ -787,7 +939,10 @@ feedList?.addEventListener("click", event => {
   }
 });
 
-// Like post
+// ========================================
+// LIKE / UNLIKE
+// ========================================
+
 async function likePost(postId) {
   if (!currentUser) {
     alert("Please login to like posts.");
@@ -803,18 +958,20 @@ async function likePost(postId) {
       if (!snapshot.exists()) return;
 
       const data = snapshot.data();
+
       const likedBy = Array.isArray(data.likedBy)
         ? data.likedBy : [];
 
-      const alreadyLiked = likedBy.includes(currentUser.uid);
+      const alreadyLiked =
+        likedBy.includes(currentUser.uid);
 
-      const updatedLikes = alreadyLiked
+      const updated = alreadyLiked
         ? likedBy.filter(id => id !== currentUser.uid)
         : [...likedBy, currentUser.uid];
 
       transaction.update(postRef, {
-        likedBy: updatedLikes,
-        likes: updatedLikes.length
+        likedBy: updated,
+        likes: updated.length
       });
     });
 
@@ -823,7 +980,10 @@ async function likePost(postId) {
   }
 }
 
-// Favorite post
+// ========================================
+// SAVE / UNSAVE FAVORITES
+// ========================================
+
 async function favoritePost(postId) {
   if (!currentUser) {
     alert("Please login to save posts.");
@@ -839,6 +999,7 @@ async function favoritePost(postId) {
       if (!snapshot.exists()) return;
 
       const data = snapshot.data();
+
       const favoriteBy = Array.isArray(data.favoriteBy)
         ? data.favoriteBy : [];
 
@@ -854,11 +1015,14 @@ async function favoritePost(postId) {
     });
 
   } catch (error) {
-    alert("Favorite error: " + error.message);
+    alert("Save error: " + error.message);
   }
 }
 
-// Add comment
+// ========================================
+// COMMENTS
+// ========================================
+
 async function addComment(postId, text) {
   if (!currentUser) {
     alert("Please login to comment.");
@@ -880,9 +1044,9 @@ async function addComment(postId, text) {
 
       if (!snapshot.exists()) return;
 
-      const data = snapshot.data();
-      const comments = Array.isArray(data.comments)
-        ? [...data.comments] : [];
+      const comments = Array.isArray(snapshot.data().comments)
+        ? [...snapshot.data().comments]
+        : [];
 
       comments.push({
         userId: currentUser.uid,
@@ -899,12 +1063,17 @@ async function addComment(postId, text) {
   }
 }
 
-// Followed users
+// ========================================
+// FOLLOW SYSTEM
+// ========================================
+
 async function loadFollowedUsers() {
   if (!currentUser) return;
 
   try {
-    const snapshot = await getDocs(collection(db, "follows"));
+    const snapshot = await getDocs(
+      collection(db, "follows")
+    );
 
     followedUsers.clear();
 
@@ -921,42 +1090,173 @@ async function loadFollowedUsers() {
   }
 }
 
-// Follow creator
-async function followCreator(creatorId) {
+// Follow OR Unfollow
+async function toggleFollow(creatorId) {
   if (!currentUser) {
     alert("Please login to follow creators.");
     return;
   }
 
-  if (!creatorId || creatorId === currentUser.uid) return;
+  if (!creatorId || creatorId === currentUser.uid) {
+    return;
+  }
 
   const followId = `${currentUser.uid}_${creatorId}`;
   const followRef = doc(db, "follows", followId);
 
   try {
     if (followedUsers.has(creatorId)) {
-      alert("You are already following this creator.");
-      return;
+      await deleteDoc(followRef);
+      followedUsers.delete(creatorId);
+    } else {
+      await setDoc(followRef, {
+        followerId: currentUser.uid,
+        followingId: creatorId,
+        createdAt: serverTimestamp()
+      });
+
+      followedUsers.add(creatorId);
     }
 
-    await setDoc(followRef, {
-      followerId: currentUser.uid,
-      followingId: creatorId,
-      createdAt: serverTimestamp()
-    });
-
-    followedUsers.add(creatorId);
-
     renderPosts();
-    loadCreators();
-    updateProfileStats();
+    await loadCreators();
+    await updateProfileStats();
 
   } catch (error) {
     alert("Follow error: " + error.message);
   }
 }
 
-// Share post
+// ========================================
+// PROFILE FOLLOWERS / FOLLOWING / LIKES
+// ========================================
+
+async function updateProfileStats() {
+  if (!currentUser || !profileStats) return;
+
+  try {
+    const myPosts = allPosts.filter(
+      post => post.userId === currentUser.uid
+    );
+
+    const likes = myPosts.reduce(
+      (total, post) => total + (Number(post.likes) || 0),
+      0
+    );
+
+    const followSnapshot = await getDocs(
+      collection(db, "follows")
+    );
+
+    let followers = 0;
+    let following = 0;
+
+    followSnapshot.forEach(item => {
+      const data = item.data();
+
+      if (data.followingId === currentUser.uid) {
+        followers++;
+      }
+
+      if (data.followerId === currentUser.uid) {
+        following++;
+      }
+    });
+
+    profileStats.textContent =
+      `${myPosts.length} Posts · ${followers} Followers · ${following} Following · ${likes} Likes`;
+
+    // Optional separate profile counters
+    const followersElement = $("followersCount");
+    const followingElement = $("followingCount");
+    const likesElement = $("likesCount");
+    const postsElement = $("postsCount");
+
+    if (followersElement) {
+      followersElement.textContent = followers;
+    }
+
+    if (followingElement) {
+      followingElement.textContent = following;
+    }
+
+    if (likesElement) {
+      likesElement.textContent = likes;
+    }
+
+    if (postsElement) {
+      postsElement.textContent = myPosts.length;
+    }
+
+  } catch (error) {
+    console.error("Profile stats error:", error);
+  }
+}
+
+// ========================================
+// DISCOVER CREATORS
+// ========================================
+
+async function loadCreators() {
+  if (!currentUser || !creatorList) return;
+
+  try {
+    const snapshot = await getDocs(
+      collection(db, "users")
+    );
+
+    if (snapshot.empty) {
+      creatorList.textContent = "No creators yet.";
+      return;
+    }
+
+    creatorList.innerHTML = snapshot.docs.map(item => {
+      const data = item.data();
+      const creatorId = item.id;
+
+      const name =
+        data.name || data.username || "Rami Creator";
+
+      const isMe = creatorId === currentUser.uid;
+      const isFollowing = followedUsers.has(creatorId);
+
+      return `
+        <div class="creator-card">
+          <strong>${escapeHTML(name)}</strong>
+
+          <p>
+            ${isMe ? "Your profile" : "Rami Creator"}
+          </p>
+
+          ${!isMe ? `
+            <button
+              class="creator-follow"
+              data-id="${escapeHTML(creatorId)}"
+              type="button">
+              ${isFollowing ? "Following" : "Follow"}
+            </button>
+          ` : ""}
+        </div>
+      `;
+    }).join("");
+
+    creatorList.querySelectorAll(
+      ".creator-follow"
+    ).forEach(button => {
+      button.addEventListener("click", async () => {
+        await toggleFollow(button.dataset.id);
+      });
+    });
+
+  } catch (error) {
+    console.error("Creator loading error:", error);
+  }
+}
+
+// ========================================
+// SHARE POSTS
+// ========================================
+
 async function sharePost(postId) {
   const link =
     `${location.origin}${location.pathname}#post-${postId}`;
@@ -972,56 +1272,17 @@ async function sharePost(postId) {
       await navigator.clipboard.writeText(link);
       alert("Post link copied!");
     } else {
-      prompt("Copy this post link:", link);
+      prompt("Copy this link:", link);
     }
   } catch (error) {
     console.log("Share cancelled:", error);
   }
 }
 
-// Discover creators
-async function loadCreators() {
-  if (!currentUser || !creatorList) return;
+// ========================================
+// MEMORIES
+// ========================================
 
-  try {
-    const snapshot = await getDocs(collection(db, "users"));
-
-    if (snapshot.empty) {
-      creatorList.textContent = "No creators yet.";
-      return;
-    }
-
-    creatorList.innerHTML = snapshot.docs.map(item => {
-      const data = item.data();
-      const creatorId = item.id;
-      const name = data.name || data.username || "Rami Creator";
-
-      return `
-        <div>
-          <strong>${escapeHTML(name)}</strong>
-          <p>${creatorId === currentUser.uid ? "You" : "Rami Creator"}</p>
-
-          ${creatorId !== currentUser.uid ? `
-            <button class="creator-follow" data-id="${escapeHTML(creatorId)}">
-              ${followedUsers.has(creatorId) ? "Following" : "Follow"}
-            </button>
-          ` : ""}
-        </div>
-      `;
-    }).join("");
-
-    creatorList.querySelectorAll(".creator-follow").forEach(button => {
-      button.addEventListener("click", () => {
-        followCreator(button.dataset.id);
-      });
-    });
-
-  } catch (error) {
-    console.error("Creator loading error:", error);
-  }
-}
-
-// Save memory
 saveMemoryButton?.addEventListener("click", async () => {
   if (!currentUser) {
     showMessage(memoryMessage, "Please login first.");
@@ -1039,7 +1300,8 @@ saveMemoryButton?.addEventListener("click", async () => {
       createdAt: serverTimestamp()
     });
 
-    showMessage(memoryMessage, "Your memory has been saved ❤️");
+    showMessage(memoryMessage, "Your memory is saved ❤️");
+
     loadMemories();
 
   } catch (error) {
@@ -1047,12 +1309,13 @@ saveMemoryButton?.addEventListener("click", async () => {
   }
 });
 
-// Load memories
 async function loadMemories() {
   if (!currentUser || !memoryList) return;
 
   try {
-    const snapshot = await getDocs(collection(db, "memories"));
+    const snapshot = await getDocs(
+      collection(db, "memories")
+    );
 
     const memories = snapshot.docs
       .map(item => ({
@@ -1062,7 +1325,7 @@ async function loadMemories() {
       .filter(item => item.userId === currentUser.uid)
       .sort((a, b) => {
         return (b.createdAt?.toMillis?.() || 0) -
-               (a.createdAt?.toMillis?.() || 0);
+          (a.createdAt?.toMillis?.() || 0);
       });
 
     if (!memories.length) {
@@ -1083,24 +1346,10 @@ async function loadMemories() {
   }
 }
 
-// Profile stats
-function updateProfileStats() {
-  if (!currentUser || !profileStats) return;
+// ========================================
+// CATEGORY FILTERS
+// ========================================
 
-  const myPosts = allPosts.filter(
-    post => post.userId === currentUser.uid
-  );
-
-  const likes = myPosts.reduce(
-    (total, post) => total + (Number(post.likes) || 0),
-    0
-  );
-
-  profileStats.textContent =
-    `${myPosts.length} Posts · ${likes} Likes · ${followedUsers.size} Following`;
-}
-
-// Category filters
 document.querySelectorAll(
   ".categories button[data-filter]"
 ).forEach(button => {
@@ -1121,7 +1370,10 @@ document.querySelectorAll(
   });
 });
 
-// Bottom navigation
+// ========================================
+// BOTTOM NAVIGATION
+// ========================================
+
 document.querySelectorAll(
   ".bottom-nav button[data-page]"
 ).forEach(button => {
@@ -1130,7 +1382,10 @@ document.querySelectorAll(
   });
 });
 
-// Search / Discover category button
+// ========================================
+// SEARCH / DISCOVER NAVIGATION
+// ========================================
+
 document.querySelectorAll(
   ".categories button[data-page]"
 ).forEach(button => {
@@ -1139,12 +1394,18 @@ document.querySelectorAll(
   });
 });
 
-// Header Profile button
+// ========================================
+// PROFILE BUTTON
+// ========================================
+
 profileButton?.addEventListener("click", () => {
   navigateTo("Profile");
 });
 
-// Start on Home
+// ========================================
+// START RAMI
+// ========================================
+
 navigateTo("Home");
 
-console.log("Rami full-screen feed initialized 🇵🇰");
+console.log("Rami social platform initialized 🇵🇰");
