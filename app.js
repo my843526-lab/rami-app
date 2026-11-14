@@ -264,7 +264,6 @@ if (creatorList && !$("creatorSearch")) {
     search.className = "rami-search";
     search.placeholder = "Search creators on Rami...";
     creatorList.before(search);
-}
   }
 }
 
