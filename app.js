@@ -280,22 +280,28 @@ function installRamiStyles() {
 // PREPARE PROFILE INTERFACE
 // ========================================
 
+
 function prepareExtraInterface() {
   const panel = $("profilePanel");
 
+  // Profile design
   if (panel && !$("ramiProfileExtra")) {
     const extra = document.createElement("div");
     extra.id = "ramiProfileExtra";
 
     extra.innerHTML = `
       <div class="rami-profile-cover"></div>
-      <img id="ramiAvatar" class="rami-avatar"
+
+      <img id="ramiAvatar"
+        class="rami-avatar"
         alt="Profile picture">
 
       <p id="ramiBio" class="rami-profile-bio"></p>
 
       <button id="editProfileButton"
-        class="rami-extra-btn">Edit Profile</button>
+        class="rami-extra-btn">
+        Edit Profile
+      </button>
 
       <div class="rami-profile-tabs">
         <button data-profile-tab="Posts" class="active">Posts</button>
@@ -310,7 +316,38 @@ function prepareExtraInterface() {
     if (stats) stats.after(extra);
     else panel.appendChild(extra);
   }
+
+  // Creator Search box
+  const creatorList = $("creatorList");
+
+  if (creatorList && !$("creatorSearch")) {
+    const searchBox = document.createElement("div");
+    searchBox.className = "creator-search-wrap";
+
+    searchBox.innerHTML = `
+      <label for="creatorSearch">
+        Search Rami Creators
+      </label>
+
+      <input
+        type="search"
+        id="creatorSearch"
+        class="creator-search-input"
+        placeholder="Search by creator name or username..."
+        autocomplete="off">
+
+      <p class="creator-search-hint">
+        Find creators and discover new talent on Rami 🇵🇰
+      </p>
+    `;
+
+    creatorList.parentElement.insertBefore(
+      searchBox,
+      creatorList
+    );
+  }
 }
+
 
 // ========================================
 // NAVIGATION
