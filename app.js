@@ -1584,11 +1584,56 @@ function renderTrendingPosts() {
 // ========================================
 
 function renderTrendingHashtags() {
-  const container = $("discoverHashtags");
+  const container =
+    $("discoverTrendingHashtags") || $("discoverHashtags");
+
   if (!container) return;
+
+  const popularHashtags = [
+    "#ForYou",
+    "#ForYouPage",
+    "#FYP",
+    "#Explore",
+    "#Viral",
+    "#Trending",
+    "#MustWatch",
+    "#GoingViral",
+    "#Rami",
+    "#RamiPakistan",
+    "#RamiCreators",
+    "#Pakistan",
+    "#Pakistani",
+    "#MadeInPakistan",
+    "#Funny",
+    "#Comedy",
+    "#Entertainment",
+    "#Music",
+    "#Dance",
+    "#Education",
+    "#Knowledge",
+    "#LearnSomething",
+    "#Technology",
+    "#Follow",
+    "#NewCreator",
+    "#CreatorCommunity",
+    "#DailyContent",
+    "#Motivation",
+    "#Lifestyle",
+    "#Sports",
+    "#Memories",
+    "#Discover",
+    "#Creative",
+    "#Inspiration"
+  ];
 
   const counts = {};
 
+  // Add popular default hashtags
+  popularHashtags.forEach(tag => {
+    counts[tag.toLowerCase()] = 0;
+  });
+
+  // Collect hashtags from real user posts
   allPosts.forEach(post => {
     const text = [
       post.title || "",
@@ -1606,13 +1651,7 @@ function renderTrendingHashtags() {
 
   const hashtags = Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 12);
-
-  if (!hashtags.length) {
-    container.innerHTML =
-      `<div class="discover-empty">Use hashtags in your posts to help people discover your content.</div>`;
-    return;
-  }
+    .slice(0, 20);
 
   container.innerHTML = hashtags.map(([tag, count]) => `
     <span class="discover-hashtag">
@@ -1635,19 +1674,25 @@ function renderDiscoverPosts() {
 // ========================================
 
 $("discoverPanel")?.addEventListener("click", async event => {
+
+  // Discover action buttons
   const button = event.target.closest("[data-discover-action]");
 
   if (button) {
     const action = button.dataset.discoverAction;
     const id = button.dataset.id;
 
+    if (!id) return;
+
     if (action === "like") {
       await likePost(id);
+      renderTrendingPosts();
       return;
     }
 
     if (action === "follow") {
       await toggleFollow(id);
+      renderTrendingPosts();
       return;
     }
 
@@ -1655,7 +1700,8 @@ $("discoverPanel")?.addEventListener("click", async event => {
       const text = prompt("Write your comment:");
 
       if (text && text.trim()) {
-        await addComment(id, text);
+        await addComment(id, text.trim());
+        renderTrendingPosts();
       }
       return;
     }
@@ -1666,36 +1712,52 @@ $("discoverPanel")?.addEventListener("click", async event => {
     }
   }
 
-  const category = event.target.closest(".discover-category");
+  // Discover category buttons
+  const category = event.target.closest(
+    "[data-discover-category], .discover-category"
+  );
 
   if (category) {
-    const label = category.textContent.trim();
+    const label = (
+      category.dataset.discoverCategory ||
+      category.dataset.category ||
+      category.textContent
+    ).trim();
 
     const categoryMap = {
-      "Education": "Knowledge",
-      "Comedy": "Entertainment",
+      "For You": "all",
+      "For You Page": "all",
       "Entertainment": "Entertainment",
+      "Comedy": "Entertainment",
       "Sports": "Entertainment",
-      "Technology": "Knowledge",
-      "Islamic Content": "Knowledge",
       "Lifestyle": "Entertainment",
-      "Community": "Entertainment"
+      "Community": "Entertainment",
+      "Education": "Knowledge",
+      "Technology": "Knowledge",
+      "Islamic Content": "Knowledge"
     };
 
-    activeFilter = categoryMap[label] || "all";
+    activeFilter = categoryMap[label] || label;
 
     document.querySelectorAll(".categories button[data-filter]")
-      .forEach(button => {
-        button.classList.toggle(
+      .forEach(filterButton => {
+        filterButton.classList.toggle(
           "active",
-          button.dataset.filter === activeFilter
+          filterButton.dataset.filter === activeFilter
         );
       });
 
-    renderPosts();
     navigateTo("Home");
+    renderPosts();
 
-    if ($("feedList")) $("feedList").scrollTop = 0;
+    if ($("feedList")) {
+      $("feedList").scrollTop = 0;
+    }
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
   }
 });
 
@@ -1703,12 +1765,16 @@ $("discoverPanel")?.addEventListener("click", async event => {
 // CREATOR FOLLOW BUTTONS
 // ========================================
 
-$("discoverPanel")?.addEventListener("click", event => {
+$("discoverPanel")?.addEventListener("click", async event => {
   const button = event.target.closest(".creator-follow");
 
-  if (button) {
-    toggleFollow(button.dataset.id);
-  }
+  if (!button) return;
+
+  const userId = button.dataset.id;
+
+  if (!userId) return;
+
+  await toggleFollow(userId);
 });
 
 // ========================================
