@@ -1476,48 +1476,74 @@ $("creatorSearch")?.addEventListener("input", renderCreatorSearch);
 // ========================================
 
 function renderTrendingPosts() {
-  const container = $("discoverTrendingPosts");
+  const container =
+    $("discoverTrendingVideos") || $("discoverTrendingPosts");
+
   if (!container) return;
 
   const trending = [...allPosts]
-    .sort((a, b) =>
-      (Number(b.likes) || 0) - (Number(a.likes) || 0)
-    )
+    .filter(post => getPostType(post) === "video" && getPostMedia(post))
+    .sort((a, b) => {
+      const scoreA =
+        (Number(a.likes) || 0) * 3 +
+        (Array.isArray(a.comments) ? a.comments.length : 0) * 2 +
+        (Number(a.views) || 0);
+
+      const scoreB =
+        (Number(b.likes) || 0) * 3 +
+        (Array.isArray(b.comments) ? b.comments.length : 0) * 2 +
+        (Number(b.views) || 0);
+
+      return scoreB - scoreA;
+    })
     .slice(0, 5);
 
   if (!trending.length) {
-    container.innerHTML =
-      `<div class="discover-empty">Be the first to publish something trending on Rami!</div>`;
+    container.innerHTML = `
+      <div class="discover-empty">
+        Be the first to publish a trending video on Rami!
+      </div>`;
     return;
   }
 
   container.innerHTML = trending.map(post => {
     const media = getPostMedia(post);
-    const type = getPostType(post);
     const liked = currentUser &&
       Array.isArray(post.likedBy) &&
       post.likedBy.includes(currentUser.uid);
 
-    let mediaHTML = "";
+    const commentsCount = Array.isArray(post.comments)
+      ? post.comments.length
+      : 0;
 
-    if (media && type === "image") {
-      mediaHTML = `<img src="${escapeHTML(media)}" alt="Trending post" loading="lazy">`;
-    } else if (media && type === "video") {
-      mediaHTML = `<video src="${escapeHTML(media)}" muted playsinline preload="metadata"></video>`;
-    } else {
-      mediaHTML = `<div class="discover-post-placeholder">✨</div>`;
-    }
+    const isFollowing = post.userId &&
+      followedUsers.has(post.userId);
 
     return `
-      <div class="discover-post-card" data-discover-post="${escapeHTML(post.id)}">
-        ${mediaHTML}
+      <div class="discover-post-card"
+        data-discover-post="${escapeHTML(post.id)}">
+
+        <video
+          src="${escapeHTML(media)}"
+          muted
+          playsinline
+          controls
+          preload="metadata">
+        </video>
 
         <div class="discover-post-info">
-          <h4>${escapeHTML(post.title || "Rami Post")}</h4>
-          <p>${escapeHTML((post.text || post.description || "").slice(0, 100))}</p>
+          <h4>${escapeHTML(post.title || "Rami Video")}</h4>
+
+          <p>${escapeHTML(
+            (post.text || post.description || "").slice(0, 100)
+          )}</p>
+
           <p>@${escapeHTML(post.userName || "Rami Creator")}</p>
+
           <div class="discover-post-meta">
-            ❤️ ${Number(post.likes) || 0} · 💬 ${(post.comments || []).length}
+            ❤️ ${Number(post.likes) || 0}
+            · 💬 ${commentsCount}
+            · 👁️ ${Number(post.views) || 0}
           </div>
 
           <div class="discover-post-actions">
@@ -1540,12 +1566,13 @@ function renderTrendingPosts() {
               ↗ Share
             </button>
 
-            ${post.userId !== currentUser?.uid ? `
+            ${post.userId && post.userId !== currentUser?.uid ? `
               <button type="button"
                 data-discover-action="follow"
                 data-id="${escapeHTML(post.userId)}">
-                ${followedUsers.has(post.userId) ? "Following" : "Follow"}
-              </button>` : ""}
+                ${isFollowing ? "Following" : "Follow"}
+              </button>
+            ` : ""}
           </div>
         </div>
       </div>`;
