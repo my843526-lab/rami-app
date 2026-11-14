@@ -256,12 +256,15 @@ function prepareExtraInterface() {
     else panel.appendChild(extra);
   }
 
-  if (creatorList && !$("creatorSearch")) {
+  const creatorList = $("creatorList");
+
+if (creatorList && !$("creatorSearch")) {
     const search = document.createElement("input");
     search.id = "creatorSearch";
     search.className = "rami-search";
     search.placeholder = "Search creators on Rami...";
     creatorList.before(search);
+}
   }
 }
 
