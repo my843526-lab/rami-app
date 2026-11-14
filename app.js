@@ -346,6 +346,16 @@ function prepareExtraInterface() {
       creatorList
     );
   }
+   // Live Creator Search
+  const creatorSearch = $("creatorSearch");
+
+  if (creatorSearch && !creatorSearch.dataset.searchBound) {
+    creatorSearch.addEventListener("input", () => {
+      renderCreatorSearch();
+    });
+
+    creatorSearch.dataset.searchBound = "true";
+  } 
 }
 
 
