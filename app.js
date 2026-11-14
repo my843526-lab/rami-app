@@ -31,7 +31,7 @@ import {
 // ========================================
 
 const firebaseConfig = {
-  apiKey: apiKey: "AIzaSyB8nvVBQ2KJ-6bir7N_gI0zaOy9j7seuhg",
+  apiKey: "AIzaSyB8nvVBQ2KJ-6bir7N_gI0zaOy9j7seuhg",
   authDomain: "rami-3aeed.firebaseapp.com",
   projectId: "rami-3aeed",
   storageBucket: "rami-3aeed.firebasestorage.app",
