@@ -946,9 +946,24 @@ async function loadProfile() {
 
     // Profile bio
     if ($("ramiBio")) {
-      $("ramiBio").textContent =
-        currentProfile.bio || "Welcome to my Rami profile!";
-    }
+  $("ramiBio").textContent =
+    currentProfile.bio || "Welcome to my Rami profile!";
+}
+
+// Restore personal profile controls
+if ($("editProfileButton")) {
+  $("editProfileButton").hidden = false;
+}
+
+if ($("ramiShareProfile")) {
+  $("ramiShareProfile").hidden = false;
+}
+
+document.querySelectorAll(
+  '[data-profile-tab="Saved"], [data-profile-tab="Memories"]'
+).forEach(tab => {
+  tab.hidden = false;
+});
 
     // Profile picture
     const extraAvatar = $("ramiAvatar");
@@ -1076,23 +1091,190 @@ async function loadSharedProfile(userId) {
             }).join("")}
           </div>`;
       }
+
+async function loadSharedProfile(userId) {
+  if (!userId) return;
+
+  try {
+    const userSnapshot = await getDoc(doc(db, "users", userId));
+
+    if (!userSnapshot.exists()) {
+      alert("This Rami profile could not be found.");
+      return;
     }
 
-    document.querySelectorAll("[data-profile-tab]").forEach(tab => {
-      tab.classList.toggle(
-        "active", tab.dataset.profileTab === "Posts"
-      );
+    const profile = userSnapshot.data();
+    const name = profile.name || profile.username || "Rami Creator";
+    const username = String(profile.username || name).replace(/^@/, "");
+
+    const [postsSnapshot, followsSnapshot] = await Promise.all([
+      getDocs(collection(db, "posts")),
+      getDocs(collection(db, "follows"))
+    ]);
+
+    const posts = postsSnapshot.docs
+      .map(item => ({ id: item.id, ...item.data() }))
+      .filter(post => post.userId === userId);
+
+    let followers = 0;
+    let following = 0;
+
+    followsSnapshot.forEach(item => {
+      const data = item.data();
+
+      if (data.followingId === userId) followers++;
+      if (data.followerId === userId) following++;
     });
+
+    const likes = posts.reduce(
+      (total, post) => total + (Number(post.likes) || 0),
+      0
+    );
+
+    // Show public profile
+    if ($("profilePanel")) $("profilePanel").hidden = false;
+    if ($("homeFeed")) $("homeFeed").hidden = true;
+    if ($("createPanel")) $("createPanel").hidden = true;
+    if ($("discoverPanel")) $("discoverPanel").hidden = true;
+    if ($("accountPanel")) $("accountPanel").hidden = true;
+
+    currentPage = "Profile";
+
+    document.body.classList.remove(
+      "page-home",
+      "page-create",
+      "page-discover"
+    );
+
+    document.body.classList.add("page-profile");
+
+    // Public identity
+    if ($("ramiProName")) {
+      $("ramiProName").textContent = name;
+    }
+
+    if ($("ramiProUsername")) {
+      $("ramiProUsername").textContent = `@${username}`;
+    }
+
+    if ($("ramiBio")) {
+      $("ramiBio").textContent =
+        profile.bio || "Welcome to my Rami profile!";
+    }
+
+    // Public profile picture
+    if ($("ramiAvatar")) {
+      $("ramiAvatar").src = profile.photoURL ||
+        "https://placehold.co/100x100/29293b/ffffff?text=R";
+    }
+
+    // Public cover
+    if ($("ramiProCover")) {
+      if (profile.coverURL) {
+        $("ramiProCover").style.backgroundImage =
+          `url("${profile.coverURL}")`;
+        $("ramiProCover").style.backgroundSize = "cover";
+        $("ramiProCover").style.backgroundPosition = "center";
+      } else {
+        $("ramiProCover").style.backgroundImage =
+          "linear-gradient(120deg, #24134f, #6236b5, #171725)";
+      }
+    }
+
+    // Public statistics
+    const publicCounters = {
+      ramiProPosts: posts.length,
+      ramiProFollowers: followers,
+      ramiProFollowing: following,
+      ramiProLikes: likes
+    };
+
+    Object.entries(publicCounters).forEach(([id, value]) => {
+      if ($(id)) {
+        $(id).textContent = Number(value).toLocaleString();
+      }
+    });
+
+    // Public posts only
+    const container = $("ramiProfileContent");
+
+    if (container) {
+      if (!posts.length) {
+        container.innerHTML =
+          `<p class="rami-status">No public posts yet.</p>`;
+      } else {
+        container.innerHTML = `
+          <div class="rami-profile-grid">
+            ${posts.map(post => {
+              const media = getPostMedia(post);
+              const type = getPostType(post);
+              let content = "";
+
+              if (media && type === "video") {
+                content = `
+                  <video
+                    src="${escapeHTML(media)}"
+                    controls
+                    playsinline
+                  ></video>`;
+              } else if (media && type === "image") {
+                content = `
+                  <img
+                    src="${escapeHTML(media)}"
+                    alt="Post"
+                  >`;
+              } else {
+                content = `
+                  <div class="rami-status">
+                    ${escapeHTML(post.title || post.text || "Rami post")}
+                  </div>`;
+              }
+
+              return `
+                <div class="rami-profile-post">
+                  ${content}
+                  <p>${escapeHTML(post.title || post.text || "Rami Post")}</p>
+                  <p>❤️ ${Number(post.likes) || 0}</p>
+                </div>`;
+            }).join("")}
+          </div>`;
+      }
+    }
+
+    // Public profile is read-only
+    if ($("editProfileButton")) {
+      $("editProfileButton").hidden = true;
+    }
+
+    document.querySelectorAll(
+      '[data-profile-tab="Saved"], [data-profile-tab="Memories"]'
+    ).forEach(tab => {
+      tab.hidden = true;
+    });
+
+    const postsTab = document.querySelector(
+      '[data-profile-tab="Posts"]'
+    );
+
+    if (postsTab) {
+      postsTab.hidden = false;
+      postsTab.classList.add("active");
+    }
+
+    profileTab = "Posts";
 
     if ($("ramiShareProfile")) {
       $("ramiShareProfile").hidden = false;
     }
+
+    console.log("Public Rami profile loaded:", userId);
 
   } catch (error) {
     console.error("Shared profile error:", error);
     alert("Unable to open this Rami profile. Please try again.");
   }
 }
+
 
 // ========================================
 // EDIT PROFILE
