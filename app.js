@@ -2556,11 +2556,12 @@ $("profileButton")?.addEventListener("click", () => {
 // ========================================
 
 installRamiStyles();
-installRamiProfessionalStyles();
 prepareExtraInterface();
 navigateTo("Home");
+
 const sharedProfileId =
   new URLSearchParams(window.location.search).get("profile");
 
 if (sharedProfileId) loadSharedProfile(sharedProfileId);
+
 console.log("RAMI Professional Edition initialized 🇵🇰");
