@@ -276,48 +276,234 @@ function installRamiStyles() {
   document.head.appendChild(style);
 }
 
+function installRamiProfessionalStyles() {
+  if ($("ramiProfessionalStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "ramiProfessionalStyles";
+
+  style.textContent = `
+    .rami-pro-profile {
+      width: 100%;
+      margin: 12px 0 18px;
+      padding-bottom: 12px;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #171725;
+      color: white;
+      border: 1px solid rgba(255,255,255,.09);
+    }
+
+    .rami-pro-cover {
+      height: 125px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-end;
+      padding: 13px;
+      box-sizing: border-box;
+      background:
+        radial-gradient(circle at 85% 15%, #a78bfa, transparent 38%),
+        linear-gradient(120deg, #24134f, #6236b5, #171725);
+    }
+
+    .rami-pro-cover span {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 2px;
+    }
+
+    .rami-pro-identity {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 0 15px;
+      margin-top: -42px;
+      position: relative;
+    }
+
+    .rami-pro-identity .rami-avatar {
+      width: 88px;
+      height: 88px;
+      flex-shrink: 0;
+      margin: 0;
+      padding: 3px;
+      box-sizing: border-box;
+      border: 3px solid #a78bfa;
+      background: #171725;
+    }
+
+    .rami-pro-name {
+      min-width: 0;
+      padding-top: 34px;
+    }
+
+    .rami-pro-name h2 {
+      margin: 0;
+      color: white;
+      font-size: 19px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .rami-pro-name p {
+      margin: 4px 0 0;
+      color: #b9b3ca;
+      font-size: 13px;
+    }
+
+    .rami-pro-profile .rami-profile-bio {
+      margin: 13px 15px 5px;
+      color: #dedbea;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .rami-pro-actions {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+    }
+
+    .rami-pro-actions button {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .rami-pro-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      padding: 13px 5px;
+      border-top: 1px solid rgba(255,255,255,.09);
+      border-bottom: 1px solid rgba(255,255,255,.09);
+    }
+
+    .rami-pro-stats div {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .rami-pro-stats strong {
+      font-size: 17px;
+      color: white;
+    }
+
+    .rami-pro-stats span {
+      font-size: 10px;
+      color: #b9b3ca;
+    }
+
+    .rami-pro-profile .rami-profile-tabs {
+      padding: 0 10px;
+    }
+
+    @media(max-width:360px) {
+      .rami-pro-name h2 {
+        font-size: 16px;
+      }
+
+      .rami-pro-stats strong {
+        font-size: 14px;
+      }
+
+      .rami-pro-stats span {
+        font-size: 9px;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
 // ========================================
 // PREPARE PROFILE INTERFACE
 // ========================================
 
 
+
 function prepareExtraInterface() {
   const panel = $("profilePanel");
 
-  // Profile design
   if (panel && !$("ramiProfileExtra")) {
     const extra = document.createElement("div");
     extra.id = "ramiProfileExtra";
 
     extra.innerHTML = `
-      <div class="rami-profile-cover"></div>
+      <section class="rami-pro-profile">
 
-      <img id="ramiAvatar"
-        class="rami-avatar"
-        alt="Profile picture">
+        <div class="rami-pro-cover" id="ramiProCover">
+          <span>RAMI CREATOR</span>
+        </div>
 
-      <p id="ramiBio" class="rami-profile-bio"></p>
+        <div class="rami-pro-identity">
+          <img
+            id="ramiAvatar"
+            class="rami-avatar"
+            alt="Profile picture"
+            src="https://placehold.co/120x120/29293b/ffffff?text=R"
+          >
 
-      <button id="editProfileButton"
-        class="rami-extra-btn">
-        Edit Profile
-      </button>
+          <div class="rami-pro-name">
+            <h2 id="ramiProName">Rami Creator</h2>
+            <p id="ramiProUsername">@creator</p>
+          </div>
+        </div>
 
-      <div class="rami-profile-tabs">
-        <button data-profile-tab="Posts" class="active">Posts</button>
-        <button data-profile-tab="Saved">Saved</button>
-        <button data-profile-tab="Memories">Memories</button>
-      </div>
+        <p id="ramiBio" class="rami-profile-bio">
+          Welcome to my Rami profile!
+        </p>
 
-      <div id="ramiProfileContent"></div>
+        <div class="rami-pro-actions">
+          <button id="editProfileButton" class="rami-extra-btn">
+            Edit Profile
+          </button>
+
+          <button id="ramiShareProfile" class="rami-extra-btn">
+            Share Profile
+          </button>
+        </div>
+
+        <div class="rami-pro-stats">
+          <div>
+            <strong id="ramiProPosts">0</strong>
+            <span>Posts</span>
+          </div>
+          <div>
+            <strong id="ramiProFollowers">0</strong>
+            <span>Followers</span>
+          </div>
+          <div>
+            <strong id="ramiProFollowing">0</strong>
+            <span>Following</span>
+          </div>
+          <div>
+            <strong id="ramiProLikes">0</strong>
+            <span>Likes</span>
+          </div>
+        </div>
+
+        <div class="rami-profile-tabs">
+          <button data-profile-tab="Posts" class="active">Posts</button>
+          <button data-profile-tab="Saved">Saved</button>
+          <button data-profile-tab="Memories">Memories</button>
+        </div>
+
+        <div id="ramiProfileContent"></div>
+      </section>
     `;
 
     const stats = $("profileStats");
-    if (stats) stats.after(extra);
-    else panel.appendChild(extra);
+
+    if (stats) {
+      stats.after(extra);
+    } else {
+      panel.appendChild(extra);
+    }
   }
 
-  // Creator Search box
+  // Creator Search — existing functionality preserved
   const creatorList = $("creatorList");
 
   if (creatorList && !$("creatorSearch")) {
@@ -325,9 +511,7 @@ function prepareExtraInterface() {
     searchBox.className = "creator-search-wrap";
 
     searchBox.innerHTML = `
-      <label for="creatorSearch">
-        Search Rami Creators
-      </label>
+      <label for="creatorSearch">Search Rami Creators</label>
 
       <input
         type="search"
@@ -341,22 +525,50 @@ function prepareExtraInterface() {
       </p>
     `;
 
-    creatorList.parentElement.insertBefore(
-      searchBox,
-      creatorList
-    );
+    creatorList.parentElement.insertBefore(searchBox, creatorList);
   }
-   // Live Creator Search
+
+  // Bind creator search only once
   const creatorSearch = $("creatorSearch");
 
   if (creatorSearch && !creatorSearch.dataset.searchBound) {
-    creatorSearch.addEventListener("input", () => {
-      renderCreatorSearch();
-    });
-
+    creatorSearch.addEventListener("input", renderCreatorSearch);
     creatorSearch.dataset.searchBound = "true";
-  } 
+  }
 }
+
+$("profilePanel")?.addEventListener("click", async event => {
+  const shareButton = event.target.closest("#ramiShareProfile");
+
+  if (!shareButton) return;
+
+  const profileName = currentProfile.name ||
+    currentProfile.username ||
+    displayName();
+
+  const profileUrl = `${window.location.origin}${window.location.pathname}?profile=${encodeURIComponent(currentUser?.uid || "")}`;
+
+  const shareData = {
+    title: `${profileName} on Rami`,
+    text: `Check out ${profileName}'s profile on Rami!`,
+    url: profileUrl
+  };
+
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(profileUrl);
+      alert("Profile link copied!");
+    } else {
+      prompt("Copy your Rami profile link:", profileUrl);
+    }
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      console.error("Profile sharing error:", error);
+    }
+  }
+});
 
 
 // ========================================
@@ -690,6 +902,7 @@ onAuthStateChanged(auth, async user => {
 // LOAD PROFILE
 // ========================================
 
+
 async function loadProfile() {
   if (!currentUser) return;
 
@@ -706,7 +919,13 @@ async function loadProfile() {
       currentProfile.username ||
       displayName();
 
-    if ($("profileName")) $("profileName").textContent = name;
+    const username = String(
+      currentProfile.username || name || "creator"
+    ).replace(/^@/, "");
+
+    if ($("profileName")) {
+      $("profileName").textContent = name;
+    }
 
     if ($("welcomeUser")) {
       $("welcomeUser").textContent = `Welcome, ${name}!`;
@@ -716,11 +935,22 @@ async function loadProfile() {
       $("userEmail").textContent = currentUser.email || "";
     }
 
+    // Professional profile name and username
+    if ($("ramiProName")) {
+      $("ramiProName").textContent = name;
+    }
+
+    if ($("ramiProUsername")) {
+      $("ramiProUsername").textContent = `@${username}`;
+    }
+
+    // Profile bio
     if ($("ramiBio")) {
       $("ramiBio").textContent =
         currentProfile.bio || "Welcome to my Rami profile!";
     }
 
+    // Profile picture
     const extraAvatar = $("ramiAvatar");
 
     if (extraAvatar) {
@@ -728,8 +958,139 @@ async function loadProfile() {
         "https://placehold.co/100x100/29293b/ffffff?text=R";
     }
 
+    // Profile cover
+    const cover = $("ramiProCover");
+
+    if (cover) {
+      if (currentProfile.coverURL) {
+        cover.style.backgroundImage =
+          `url("${currentProfile.coverURL}")`;
+        cover.style.backgroundSize = "cover";
+        cover.style.backgroundPosition = "center";
+      }
+    }
+
   } catch (error) {
     console.error("Profile loading error:", error);
+  }
+}
+
+async function loadSharedProfile(userId) {
+  if (!userId) return;
+
+  try {
+    const userSnapshot = await getDoc(doc(db, "users", userId));
+
+    if (!userSnapshot.exists()) {
+      alert("This Rami profile could not be found.");
+      return;
+    }
+
+    const profile = userSnapshot.data();
+    const name = profile.name || profile.username || "Rami Creator";
+    const username = String(profile.username || name).replace(/^@/, "");
+
+    const postsSnapshot = await getDocs(collection(db, "posts"));
+
+    const posts = postsSnapshot.docs
+      .map(item => ({ id: item.id, ...item.data() }))
+      .filter(post => post.userId === userId);
+
+    const followsSnapshot = await getDocs(collection(db, "follows"));
+
+    let followers = 0;
+    let following = 0;
+
+    followsSnapshot.forEach(item => {
+      const data = item.data();
+      if (data.followingId === userId) followers++;
+      if (data.followerId === userId) following++;
+    });
+
+    const likes = posts.reduce(
+      (total, post) => total + (Number(post.likes) || 0), 0
+    );
+
+    if ($("profilePanel")) $("profilePanel").hidden = false;
+    if ($("homeFeed")) $("homeFeed").hidden = true;
+    if ($("createPanel")) $("createPanel").hidden = true;
+    if ($("discoverPanel")) $("discoverPanel").hidden = true;
+    if ($("accountPanel")) $("accountPanel").hidden = true;
+
+    currentPage = "Profile";
+    document.body.classList.remove(
+      "page-home", "page-create", "page-discover"
+    );
+    document.body.classList.add("page-profile");
+
+    if ($("ramiProName")) $("ramiProName").textContent = name;
+    if ($("ramiProUsername")) $("ramiProUsername").textContent = `@${username}`;
+    if ($("ramiBio")) $("ramiBio").textContent =
+      profile.bio || "Welcome to my Rami profile!";
+
+    if ($("ramiAvatar")) {
+      $("ramiAvatar").src = profile.photoURL ||
+        "https://placehold.co/100x100/29293b/ffffff?text=R";
+    }
+
+    if ($("ramiProPosts")) $("ramiProPosts").textContent = posts.length;
+    if ($("ramiProFollowers")) $("ramiProFollowers").textContent = followers;
+    if ($("ramiProFollowing")) $("ramiProFollowing").textContent = following;
+    if ($("ramiProLikes")) $("ramiProLikes").textContent = likes;
+
+    if ($("ramiProCover") && profile.coverURL) {
+      $("ramiProCover").style.backgroundImage =
+        `url("${profile.coverURL}")`;
+      $("ramiProCover").style.backgroundSize = "cover";
+      $("ramiProCover").style.backgroundPosition = "center";
+    }
+
+    const container = $("ramiProfileContent");
+
+    if (container) {
+      if (!posts.length) {
+        container.innerHTML =
+          `<p class="rami-status">No public posts yet.</p>`;
+      } else {
+        container.innerHTML = `
+          <div class="rami-profile-grid">
+            ${posts.map(post => {
+              const media = getPostMedia(post);
+              const type = getPostType(post);
+              let content = "";
+
+              if (media && type === "video") {
+                content = `<video src="${escapeHTML(media)}" controls playsinline></video>`;
+              } else if (media && type === "image") {
+                content = `<img src="${escapeHTML(media)}" alt="Post">`;
+              } else {
+                content = `<div class="rami-status">${escapeHTML(post.title || post.text || "Rami post")}</div>`;
+              }
+
+              return `
+                <div class="rami-profile-post">
+                  ${content}
+                  <p>${escapeHTML(post.title || post.text || "Rami Post")}</p>
+                  <p>❤️ ${Number(post.likes) || 0}</p>
+                </div>`;
+            }).join("")}
+          </div>`;
+      }
+    }
+
+    document.querySelectorAll("[data-profile-tab]").forEach(tab => {
+      tab.classList.toggle(
+        "active", tab.dataset.profileTab === "Posts"
+      );
+    });
+
+    if ($("ramiShareProfile")) {
+      $("ramiShareProfile").hidden = false;
+    }
+
+  } catch (error) {
+    console.error("Shared profile error:", error);
+    alert("Unable to open this Rami profile. Please try again.");
   }
 }
 
@@ -1260,6 +1621,7 @@ async function toggleFollow(creatorId) {
 // PROFILE STATISTICS
 // ========================================
 
+
 async function updateProfileStats() {
   if (!currentUser) return;
 
@@ -1285,11 +1647,13 @@ async function updateProfileStats() {
       if (data.followerId === currentUser.uid) following++;
     });
 
+    // Existing profile statistics
     if ($("profileStats")) {
       $("profileStats").textContent =
         `${myPosts.length} Posts · ${followers} Followers · ${following} Following · ${likes} Likes`;
     }
 
+    // Existing counters
     const counters = {
       followersCount: followers,
       followingCount: following,
@@ -1298,13 +1662,30 @@ async function updateProfileStats() {
     };
 
     Object.entries(counters).forEach(([id, value]) => {
-      if ($(id)) $(id).textContent = value;
+      if ($(id)) {
+        $(id).textContent = value;
+      }
+    });
+
+    // New professional profile counters
+    const professionalCounters = {
+      ramiProPosts: myPosts.length,
+      ramiProFollowers: followers,
+      ramiProFollowing: following,
+      ramiProLikes: likes
+    };
+
+    Object.entries(professionalCounters).forEach(([id, value]) => {
+      if ($(id)) {
+        $(id).textContent = Number(value).toLocaleString();
+      }
     });
 
   } catch (error) {
     console.error("Stats error:", error);
   }
 }
+
 
 // ========================================
 // CREATOR CARD BUILDER
@@ -1993,7 +2374,11 @@ $("profileButton")?.addEventListener("click", () => {
 // ========================================
 
 installRamiStyles();
+installRamiProfessionalStyles();
 prepareExtraInterface();
 navigateTo("Home");
+const sharedProfileId =
+  new URLSearchParams(window.location.search).get("profile");
 
+if (sharedProfileId) loadSharedProfile(sharedProfileId);
 console.log("RAMI Professional Edition initialized 🇵🇰");
